@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -8,6 +8,7 @@ import FilteredPage from './pages/FilteredPage';
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const Router = import.meta.env.PROD ? HashRouter : BrowserRouter;
 
   return (
     <Router>
