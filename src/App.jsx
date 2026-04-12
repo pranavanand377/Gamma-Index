@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Navigate, Routes, Route } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -28,6 +28,7 @@ function App() {
                 <Route path="/my-list" element={<MyList />} />
                 <Route path="/library/:filter" element={<FilteredPage mode="library" />} />
                 <Route path="/status/:filter" element={<FilteredPage mode="status" />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
           </main>

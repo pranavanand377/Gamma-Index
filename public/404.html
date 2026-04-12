@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Gamma Index</title>
+    <script>
+      // Redirect unknown GitHub Pages paths back to index while preserving route.
+      var path = window.location.pathname + window.location.search + window.location.hash;
+      var repoBase = '/Gamma-Index';
+      var normalizedPath = path.indexOf(repoBase) === 0 ? path.slice(repoBase.length) : path;
+      window.location.replace(repoBase + '/#' + normalizedPath);
+    </script>
+  </head>
+  <body></body>
+</html>

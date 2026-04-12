@@ -3,11 +3,10 @@ import { useMemo, useState } from 'react';
 const GammaLogo = ({ size = 32 }) => {
   const logoCandidates = useMemo(() => {
     const baseUrl = import.meta.env.BASE_URL || '/';
-    const firstPathSegment = window.location.pathname.split('/').filter(Boolean)[0];
     const fromBase = `${baseUrl}logo.png`;
-    const fromRepoRoot = firstPathSegment ? `/${firstPathSegment}/logo.png` : null;
 
-    return [fromBase, fromRepoRoot, '/logo.png', 'logo.png'].filter(
+    // Intentionally logo-only candidates (never favicon) for navbar branding.
+    return [fromBase, '/logo.png', 'logo.png'].filter(
       (path, index, arr) => path && arr.indexOf(path) === index,
     );
   }, []);
