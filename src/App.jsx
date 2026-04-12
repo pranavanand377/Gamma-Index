@@ -5,6 +5,7 @@ import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import MyList from './pages/MyList';
 import FilteredPage from './pages/FilteredPage';
+import ToastContainer from './components/common/Toast';
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -34,6 +35,9 @@ function App() {
           </main>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <ToastContainer />
     </Router>
   );
 }

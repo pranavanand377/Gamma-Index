@@ -13,6 +13,8 @@ import {
   Plus,
 } from 'lucide-react';
 import useMediaStore from '../../store/useMediaStore';
+import useToastStore from '../../store/useToastStore';
+import ConfirmDeleteModal from '../common/ConfirmDeleteModal';
 
 const typeIcons = {
   anime: Tv,
@@ -37,7 +39,15 @@ const statusLabels = {
 
 const MediaCard = ({ item, onEdit, onDelete }) => {
   const [hovered, setHovered] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const updateItem = useMediaStore((s) => s.updateItem);
+  const addToast = useToastStore((s) => s.addToast);
+
+  const handleConfirmDelete = () => {
+    onDelete(item.id);
+    addToast(`Deleted "${item.title}"`, 'success');
+    setDeleteConfirmOpen(false);
+  };
 
   const TypeIcon = typeIcons[item.type] || Film;
   const hasEpisodes = item.type !== 'movie';
@@ -119,7 +129,7 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
             <Pencil size={14} />
           </button>
           <button
-            onClick={() => onDelete(item.id)}
+            onClick={() => setDeleteConfirmOpen(true)}
             className="p-2 rounded-lg bg-surface-base/80 backdrop-blur-sm text-text-secondary hover:bg-status-error hover:text-white transition-all cursor-pointer"
             title="Delete"
           >
@@ -177,6 +187,14 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
           )}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={deleteConfirmOpen}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        itemTitle={item.title}
+      />
     </motion.div>
   );
 };

@@ -18,6 +18,7 @@ import { searchMovies } from '../../services/tmdbApi';
 import { searchTvSeries, fetchTvEpisodesBySeason } from '../../services/tvmazeApi';
 import { searchManga, fetchMangaChapters } from '../../services/mangadexApi';
 import useMediaStore from '../../store/useMediaStore';
+import useToastStore from '../../store/useToastStore';
 
 const TYPES = [
   { id: 'anime', label: 'Anime', icon: Tv },
@@ -54,6 +55,7 @@ const modalVariants = {
 const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const addItem = useMediaStore((s) => s.addItem);
   const updateItem = useMediaStore((s) => s.updateItem);
+  const addToast = useToastStore((s) => s.addToast);
 
   const [step, setStep] = useState(1);
   const [type, setType] = useState('anime');
@@ -218,8 +220,10 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
 
     if (editItem) {
       updateItem(editItem.id, itemData);
+      addToast(`Updated "${selectedTitle.title}"`, 'success');
     } else {
       addItem(itemData);
+      addToast(`Added "${selectedTitle.title}" to your list`, 'success');
     }
     onClose();
   };
