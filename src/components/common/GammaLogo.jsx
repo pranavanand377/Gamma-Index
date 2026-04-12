@@ -1,6 +1,6 @@
 const GammaLogo = ({ size = 32 }) => (
   <img
-    src="/logo.png"
+    src={`${import.meta.env.BASE_URL}logo.png`}
     alt="Gamma Index"
     width={size}
     height={size}
