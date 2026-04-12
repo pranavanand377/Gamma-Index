@@ -13,10 +13,9 @@ import {
   ExternalLink,
   Loader2,
 } from 'lucide-react';
-import { searchAnime, fetchAnimeEpisodes } from '../../services/jikanApi';
+import { searchAnime, fetchAnimeEpisodes, searchManga, fetchMangaChapters } from '../../services/jikanApi';
 import { searchMovies } from '../../services/tmdbApi';
 import { searchTvSeries, fetchTvEpisodesBySeason } from '../../services/tvmazeApi';
-import { searchManga, fetchMangaChapters } from '../../services/mangadexApi';
 import useMediaStore from '../../store/useMediaStore';
 import useToastStore from '../../store/useToastStore';
 
