@@ -31,6 +31,18 @@ const getResetRedirectUrl = () => {
     : `${base}auth/reset-password`;
 };
 
+const formatSignupError = (err) => {
+  const message = err?.message || '';
+  if (
+    message.includes('over_email_send_rate_limit')
+    || message.toLowerCase().includes('email rate limit exceeded')
+  ) {
+    return 'Too many confirmation emails were sent recently. Please wait a few minutes and try again.';
+  }
+
+  return message || 'Unable to create account right now. Please try again.';
+};
+
 const ensureOwnProfile = async (user) => {
   if (!user) return null;
 
@@ -182,8 +194,9 @@ const useAuthStore = create((set) => ({
       if (error) throw error;
       return data;
     } catch (err) {
-      set({ error: err.message });
-      throw err;
+      const formattedError = formatSignupError(err);
+      set({ error: formattedError });
+      throw new Error(formattedError);
     }
   },
 
