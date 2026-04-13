@@ -414,7 +414,10 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     const nextTotal = manualSeasonTotals[normalizedSeason] ?? 0;
     setManualSeasonTotals((prev) => (
       prev[normalizedSeason] === undefined
-        ? { ...prev, [normalizedSeason]: 0 }
+        ? (() => {
+            addToast(`Added Season ${normalizedSeason}. Set total episodes to generate tiles.`, 'success');
+            return { ...prev, [normalizedSeason]: 0 };
+          })()
         : prev
     ));
     setManualTotalEpisodes(nextTotal);
