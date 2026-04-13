@@ -1,107 +1,114 @@
 # Gamma Index
 
-Gamma Index is a media tracking web app for anime, TV series, movies, and comics.
+Gamma Index is a multi-tenant media tracker for anime, TV series, movies, and comics.
 
-It focuses on fast entry, clean tracking workflows, and a premium dark UI with a green-cyan visual identity.
+It is designed around one goal: make tracking feel fast, visual, and reliable even when third-party APIs are incomplete.
 
-## What It Does
+## Product Overview
 
-- Add records across multiple media types
-- Search metadata from public APIs
-- Track progress by episode/chapter and season
-- Filter your library by type and status
-- Edit/delete records with confirmation safeguards
-- Show quick dashboard insights from your tracked data
+Gamma Index helps users:
 
-## Built With
+- discover titles using integrated metadata APIs
+- add entries quickly with polished tracking flows
+- maintain progress over time (episode/chapter and seasons)
+- monitor library health through dashboard insights
+- manage favorites, ratings, and notes in one place
+
+It also includes a built-in approval system so one admin account can control who gets access in a multi-tenant environment.
+
+## Key Features
+
+### Library and Tracking
+
+- Track Anime, TV, Movies, and Comics in one workspace
+- Add/Edit/Delete records with confirmation and toast feedback
+- Episode/chapter progress tracking with manual override controls
+- TV season-aware tracking
+- Favorites system independent from rating
+- Per-title notes and watch/read links
+
+### Smart Data Entry
+
+- API-driven search and metadata hydration
+- Manual fallback entry when APIs fail or return poor matches
+- Manual image upload support for custom records
+- Dynamic manual episode tile generation when API episode data is missing
+
+### Admin and Multi-Tenant Controls
+
+- Account-backed persistence via Supabase
+- Tenant data isolation
+- Admin-only user approval and account disable controls
+- Pending approval gate for new users
+
+### UX and Visuals
+
+- Branded dark theme with Gamma Green visual identity
+- Dashboard statistics and chart visualizations
+- My List filtering, sorting, and CSV export
+- Responsive layout for desktop and mobile
+
+## Tech Stack
 
 - React 19 + Vite 5
 - Tailwind CSS 3
 - Framer Motion
 - Zustand
 - React Router
+- Supabase (Auth, Postgres, Storage)
+- Recharts
 - Lucide React
 
-## Data and APIs
+## Quick Start
 
-Client-side storage is currently local to the browser using localStorage.
-
-External data sources:
-- Jikan API (anime and comic discovery)
-- TVMaze API (TV series and episodes)
-- TMDB API (movie search when API key is configured)
-- OMDb/Cinemeta fallbacks for movies when TMDB key is missing
-
-Recent integration note:
-- Comic discovery moved from MangaDex to Jikan to avoid production browser CORS failures.
-
-## Project Structure
-
-```text
-src/
-	components/
-		common/
-		features/
-		layout/
-	pages/
-	services/
-	store/
-```
-
-## Getting Started
-
-### 1. Install dependencies
+### 1. Install
 
 ```bash
 npm install
 ```
 
-### 2. Run development server
+### 2. Configure environment
+
+Copy `.env.example` to `.env` and set:
+
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_ADMIN_EMAIL=your_admin_email@example.com
+VITE_TMDB_API_KEY=optional_tmdb_api_key
+```
+
+### 3. Run locally
 
 ```bash
 npm run dev
 ```
 
-App runs at: `http://localhost:5173`
-
-### 3. Build for production
+### 4. Build for production
 
 ```bash
 npm run build
-```
-
-### 4. Preview production build
-
-```bash
 npm run preview
 ```
 
-## Environment Variables
+## Deployment
 
-Optional TMDB integration:
+Gamma Index is configured for GitHub Pages deployment through GitHub Actions.
 
-```env
-VITE_TMDB_API_KEY=your_tmdb_api_key_here
-```
+Deployment workflow: `.github/workflows/deploy.yml`
 
-If TMDB key is not provided, movie search still works through fallback providers.
+Required repository secrets:
 
-## Scripts
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_ADMIN_EMAIL`
+- `VITE_TMDB_API_KEY` (optional)
 
-- `npm run dev` - start local development
-- `npm run build` - create production bundle
-- `npm run preview` - preview production build
-- `npm run lint` - run ESLint
+## Product Notes
 
-## Product Direction
-
-Planned next step is account-backed persistence (Supabase) so records sync across devices while preserving current UX patterns.
-
-## Learning Notes
-
-In-depth implementation guides are maintained locally for this project workflow.
-A tracked index is available in [docs/LEARNING_GUIDE_INDEX.md](docs/LEARNING_GUIDE_INDEX.md).
+- This project is actively iterated with a product-first mindset.
+- Internal implementation deep-dives are documented separately in the local `learning/` folder.
 
 ## License
 
-This project is for personal/educational use unless you define a separate license.
+This project is currently intended for personal and educational use unless a separate license is added.
