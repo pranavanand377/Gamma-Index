@@ -86,6 +86,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [watchLink, setWatchLink] = useState('');
   const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Episode picker state
   const [seasonsData, setSeasonsData] = useState([]);
@@ -243,11 +244,11 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     }
 
     setSelectedTitle({
-      apiId: null,
+      apiId: Date.now(),
       title: trimmedTitle,
       image: manualImagePreview || manualImage.trim() || null,
       synopsis: manualSynopsis.trim() || '',
-      totalEpisodes: manualTotalEpisodes > 0 ? Number(manualTotalEpisodes) : null,
+      totalEpisodes: type === 'movie' ? null : (manualTotalEpisodes > 0 ? Number(manualTotalEpisodes) : null),
       year: manualYear ? Number(manualYear) : null,
       genres: [],
       score: null,
@@ -293,7 +294,8 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   };
 
   const handleSave = async () => {
-    if (!selectedTitle || !user) return;
+    if (!selectedTitle || !user || saving) return;
+    setSaving(true);
 
     const totalForSelectedSeason = (() => {
       if (!hasEpisodes) return null;
@@ -324,7 +326,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     const itemData = {
       type,
       comicSubtype: type === 'comic' ? comicSubtype : null,
-      apiId: selectedTitle.apiId,
+      apiId: selectedTitle.apiId ?? Date.now(),
       title: selectedTitle.title,
       image: resolvedImage,
       synopsis: selectedTitle.synopsis,
@@ -353,8 +355,9 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     } catch (err) {
       console.error('[AddRecordModal] save error:', err);
       addToast('Failed to save. Check console for details.', 'error');
+    } finally {
+      setSaving(false);
     }
-    onClose();
   };
 
   // Fetch TV seasons when title changes
@@ -586,7 +589,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
                   manualSynopsis={manualSynopsis}
                   setManualSynopsis={setManualSynopsis}
                   manualTotalEpisodes={manualTotalEpisodes}
-                  setManualTotalEpisodes={setManualTotalEpisodes}
+                  onManualTotalEpisodesChange={handleManualTotalEpisodesChange}
                   onContinueManual={handleContinueManual}
                 />
               ) : (
@@ -626,15 +629,17 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
               <div className="flex flex-col-reverse gap-3 border-t border-surface-border px-4 py-3 sm:flex-row sm:justify-end sm:px-6 sm:py-4">
                 <button
                   onClick={onClose}
+                  disabled={saving}
                   className="w-full rounded-lg px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-overlay hover:text-text-primary sm:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  className="w-full rounded-lg bg-gamma-500 px-5 py-2 text-sm font-semibold text-surface-base transition-colors hover:bg-gamma-400 sm:w-auto"
+                  disabled={saving}
+                  className="w-full rounded-lg bg-gamma-500 px-5 py-2 text-sm font-semibold text-surface-base transition-colors hover:bg-gamma-400 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                 >
-                  {editItem ? 'Save Changes' : 'Add to List'}
+                  {saving ? 'Saving...' : (editItem ? 'Save Changes' : 'Add to List')}
                 </button>
               </div>
             )}
@@ -656,7 +661,7 @@ const StepOne = ({
   manualImageFile, setManualImageFile,
   manualImagePreview,
   manualSynopsis, setManualSynopsis,
-  manualTotalEpisodes, setManualTotalEpisodes,
+  manualTotalEpisodes, onManualTotalEpisodesChange,
   onContinueManual,
 }) => (
   <div className="space-y-5">
@@ -769,14 +774,16 @@ const StepOne = ({
             onChange={(e) => setManualYear(e.target.value)}
             className="number-input-clean w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
           />
-          <input
-            type="number"
-            min="0"
-            placeholder={type === 'comic' ? 'Total Chapters' : 'Total Episodes'}
-            value={manualTotalEpisodes || ''}
-            onChange={(e) => setManualTotalEpisodes(Number(e.target.value) || 0)}
-            className="number-input-clean w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
-          />
+          {type !== 'movie' && (
+            <input
+              type="number"
+              min="0"
+              placeholder={type === 'comic' ? 'Total Chapters' : 'Total Episodes'}
+              value={manualTotalEpisodes || ''}
+              onChange={(e) => onManualTotalEpisodesChange(e.target.value)}
+              className="number-input-clean w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
+            />
+          )}
         </div>
 
         <label className="block">
