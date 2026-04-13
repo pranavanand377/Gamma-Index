@@ -72,7 +72,8 @@ function App() {
     return (
       <Router>
         <Routes>
-          <Route path="*" element={<PendingApprovalPage />} />
+          <Route path="/pending-approval" element={<PendingApprovalPage />} />
+          <Route path="*" element={<Navigate to="/pending-approval" replace />} />
         </Routes>
         <ToastContainer />
       </Router>
