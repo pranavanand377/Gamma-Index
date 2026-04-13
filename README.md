@@ -1,16 +1,107 @@
-# React + Vite
+# Gamma Index
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Gamma Index is a media tracking web app for anime, TV series, movies, and comics.
 
-Currently, two official plugins are available:
+It focuses on fast entry, clean tracking workflows, and a premium dark UI with a green-cyan visual identity.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What It Does
 
-## React Compiler
+- Add records across multiple media types
+- Search metadata from public APIs
+- Track progress by episode/chapter and season
+- Filter your library by type and status
+- Edit/delete records with confirmation safeguards
+- Show quick dashboard insights from your tracked data
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Built With
 
-## Expanding the ESLint configuration
+- React 19 + Vite 5
+- Tailwind CSS 3
+- Framer Motion
+- Zustand
+- React Router
+- Lucide React
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Data and APIs
+
+Client-side storage is currently local to the browser using localStorage.
+
+External data sources:
+- Jikan API (anime and comic discovery)
+- TVMaze API (TV series and episodes)
+- TMDB API (movie search when API key is configured)
+- OMDb/Cinemeta fallbacks for movies when TMDB key is missing
+
+Recent integration note:
+- Comic discovery moved from MangaDex to Jikan to avoid production browser CORS failures.
+
+## Project Structure
+
+```text
+src/
+	components/
+		common/
+		features/
+		layout/
+	pages/
+	services/
+	store/
+```
+
+## Getting Started
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Run development server
+
+```bash
+npm run dev
+```
+
+App runs at: `http://localhost:5173`
+
+### 3. Build for production
+
+```bash
+npm run build
+```
+
+### 4. Preview production build
+
+```bash
+npm run preview
+```
+
+## Environment Variables
+
+Optional TMDB integration:
+
+```env
+VITE_TMDB_API_KEY=your_tmdb_api_key_here
+```
+
+If TMDB key is not provided, movie search still works through fallback providers.
+
+## Scripts
+
+- `npm run dev` - start local development
+- `npm run build` - create production bundle
+- `npm run preview` - preview production build
+- `npm run lint` - run ESLint
+
+## Product Direction
+
+Planned next step is account-backed persistence (Supabase) so records sync across devices while preserving current UX patterns.
+
+## Learning Notes
+
+In-depth implementation guides are maintained locally for this project workflow.
+A tracked index is available in [docs/LEARNING_GUIDE_INDEX.md](docs/LEARNING_GUIDE_INDEX.md).
+
+## License
+
+This project is for personal/educational use unless you define a separate license.
