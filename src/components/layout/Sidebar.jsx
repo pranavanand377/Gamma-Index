@@ -22,6 +22,7 @@ const sidebarSections = [
     items: [
       { icon: Home, label: 'Dashboard', path: '/' },
       { icon: List, label: 'My List', path: '/my-list' },
+      { icon: Clock, label: 'My Library', path: '/my-library' },
     ],
   },
   {
@@ -95,7 +96,7 @@ const SidebarItem = ({ item, collapsed, onSelect }) => {
   if (countKey) {
     count = items.filter((i) => i.type === countKey).length;
   } else if (statusKey === 'favorites') {
-    count = items.filter((i) => i.rating >= 8).length;
+    count = items.filter((i) => i.isFavorite).length;
   } else if (statusKey) {
     count = items.filter((i) => i.status === statusKey).length;
   }

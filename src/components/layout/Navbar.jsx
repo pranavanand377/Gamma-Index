@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu,
@@ -10,15 +10,31 @@ import {
   BookOpen,
   X,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import GammaLogo from '../common/GammaLogo';
+import useAuthStore from '../../store/useAuthStore';
+import useMediaStore from '../../store/useMediaStore';
 
 const Navbar = ({ onOpenMobileMenu }) => {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const profileRef = useRef(null);
   const notifRef = useRef(null);
+  const searchRef = useRef(null);
+  const user = useAuthStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
+  const items = useMediaStore((s) => s.items);
+
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+    return items
+      .filter((item) => item.title?.toLowerCase().includes(query))
+      .slice(0, 6);
+  }, [items, searchQuery]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -28,6 +44,9 @@ const Navbar = ({ onOpenMobileMenu }) => {
       }
       if (notifRef.current && !notifRef.current.contains(e.target)) {
         setNotifOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -63,13 +82,15 @@ const Navbar = ({ onOpenMobileMenu }) => {
       </div>
 
       {/* ── Center: Search Bar ── */}
-      <div className="order-3 w-full md:order-none md:mx-4 md:max-w-xl md:flex-1 lg:mx-8">
+      <div className="order-3 w-full md:order-none md:flex-1 md:px-6">
         <motion.div
+          ref={searchRef}
           className={`relative flex items-center rounded-xl transition-all duration-300 ${
             searchFocused
               ? 'bg-surface-overlay ring-1 ring-gamma-500/50 glow-green'
               : 'bg-surface-overlay/60'
           }`}
+          style={{ maxWidth: '44rem', margin: '0 auto' }}
           animate={{ scale: searchFocused ? 1.02 : 1 }}
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
         >
@@ -84,13 +105,19 @@ const Navbar = ({ onOpenMobileMenu }) => {
             placeholder="Search anime, comics, movies..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
+            onFocus={() => {
+              setSearchFocused(true);
+              setSearchOpen(true);
+            }}
             onBlur={() => setSearchFocused(false)}
             className="w-full bg-transparent pl-11 pr-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setSearchOpen(false);
+              }}
               className="absolute right-3 p-0.5 rounded-md text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             >
               <X size={14} />
@@ -105,6 +132,50 @@ const Navbar = ({ onOpenMobileMenu }) => {
               </kbd>
             </div>
           )}
+
+          <AnimatePresence>
+            {searchOpen && searchQuery.trim().length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                transition={{ duration: 0.12 }}
+                className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-surface-border bg-surface-raised shadow-2xl overflow-hidden"
+              >
+                {searchResults.length > 0 ? (
+                  <div className="max-h-72 overflow-y-auto py-1">
+                    {searchResults.map((item) => (
+                      <Link
+                        key={item.id}
+                        to={`/my-list?focus=${encodeURIComponent(item.id)}`}
+                        onClick={() => {
+                          setSearchQuery(item.title);
+                          setSearchOpen(false);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-overlay/70 transition-colors"
+                      >
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.title}
+                            className="h-10 w-8 rounded object-cover bg-surface-overlay"
+                          />
+                        ) : (
+                          <div className="h-10 w-8 rounded bg-surface-overlay" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-text-primary truncate">{item.title}</p>
+                          <p className="text-xs text-text-muted capitalize">{item.type}{item.status ? ` · ${item.status.replaceAll('_', ' ')}` : ''}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-4 py-3 text-sm text-text-muted">No matching records in your list.</p>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
 
@@ -208,29 +279,37 @@ const Navbar = ({ onOpenMobileMenu }) => {
               >
                 {/* User info */}
                 <div className="px-4 py-3 border-b border-surface-border">
-                  <p className="text-sm font-semibold text-text-primary">Viewer</p>
-                  <p className="text-xs text-text-muted mt-0.5">viewer@gammaindex.app</p>
+                  <p className="text-sm font-semibold text-text-primary">{user?.user_metadata?.full_name || 'User'}</p>
+                  <p className="text-xs text-text-muted mt-0.5">{user?.email}</p>
                 </div>
 
                 {/* Menu items */}
                 <div className="py-1.5">
                   {[
-                    { icon: User, label: 'My Profile' },
-                    { icon: BookOpen, label: 'My Library' },
-                    { icon: Settings, label: 'Settings' },
-                  ].map(({ icon: Icon, label }) => (
-                    <button
+                    { icon: User, label: 'My Profile', to: '/profile' },
+                    { icon: BookOpen, label: 'My Library', to: '/my-library' },
+                    { icon: Settings, label: 'Settings', to: '/settings' },
+                  ].map(({ icon: Icon, label, to }) => (
+                    <Link
                       key={label}
+                      to={to}
+                      onClick={() => setProfileOpen(false)}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors cursor-pointer"
                     >
                       <Icon size={16} />
                       {label}
-                    </button>
+                    </Link>
                   ))}
                 </div>
 
                 <div className="border-t border-surface-border py-1.5">
-                  <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-status-error hover:bg-status-error/10 transition-colors cursor-pointer">
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setProfileOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-status-error hover:bg-status-error/10 transition-colors cursor-pointer"
+                  >
                     <LogOut size={16} />
                     Sign Out
                   </button>

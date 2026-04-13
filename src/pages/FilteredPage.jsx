@@ -3,8 +3,10 @@ import { AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { Tv, Film, BookOpen, Monitor } from 'lucide-react';
 import useMediaStore from '../store/useMediaStore';
+import useAuthStore from '../store/useAuthStore';
 import MediaCard from '../components/features/MediaCard';
 import AddRecordModal from '../components/features/AddRecordModal';
+import PageLoader from '../components/common/PageLoader';
 
 const typeConfig = {
   anime: { label: 'Anime', icon: Tv, type: 'anime' },
@@ -22,7 +24,9 @@ const statusConfig = {
 const FilteredPage = ({ mode }) => {
   const { filter } = useParams();
   const items = useMediaStore((s) => s.items);
+  const loading = useMediaStore((s) => s.loading);
   const deleteItem = useMediaStore((s) => s.deleteItem);
+  const user = useAuthStore((s) => s.user);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
@@ -38,7 +42,7 @@ const FilteredPage = ({ mode }) => {
   } else if (mode === 'status') {
     const config = statusConfig[filter] || {};
     if (filter === 'favorites') {
-      filteredItems = items.filter((i) => i.rating >= 8);
+      filteredItems = items.filter((i) => i.isFavorite);
     } else {
       filteredItems = items.filter((i) => i.status === filter);
     }
@@ -51,10 +55,20 @@ const FilteredPage = ({ mode }) => {
     setModalOpen(true);
   };
 
+  const handleDelete = async (id) => {
+    if (user) {
+      await deleteItem(user.id, id);
+    }
+  };
+
   const handleCloseModal = () => {
     setModalOpen(false);
     setEditingItem(null);
   };
+
+  if (loading) {
+    return <PageLoader title="Loading Filtered View" subtitle="Applying filters to your library" />;
+  }
 
   return (
     <div className="space-y-6">

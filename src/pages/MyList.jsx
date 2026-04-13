@@ -1,39 +1,92 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Filter, Download, Heart } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import useMediaStore from '../store/useMediaStore';
+import useAuthStore from '../store/useAuthStore';
+import useToastStore from '../store/useToastStore';
 import MediaCard from '../components/features/MediaCard';
 import AddRecordModal from '../components/features/AddRecordModal';
+import PageLoader from '../components/common/PageLoader';
+import { sortItems, sortOptions } from '../utils/sorting';
+import { filterItems } from '../utils/filtering';
+import { exportToCSV } from '../utils/export';
 
 const MyList = () => {
   const items = useMediaStore((s) => s.items);
+  const loading = useMediaStore((s) => s.loading);
   const deleteItem = useMediaStore((s) => s.deleteItem);
+  const user = useAuthStore((s) => s.user);
+  const addToast = useToastStore((s) => s.addToast);
+  const location = useLocation();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [isFavoritesOnly, setIsFavoritesOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('date-added-newest');
+  const [focusedItemId, setFocusedItemId] = useState(null);
 
-  const filteredItems = items.filter((item) => {
-    if (filterType !== 'all' && item.type !== filterType) return false;
-    if (filterStatus !== 'all' && item.status !== filterStatus) return false;
-    if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
+  const focusId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('focus');
+  }, [location.search]);
+
+  const filteredItems = useMemo(() => {
+    const filtered = filterItems(items, {
+      type: filterType,
+      status: filterStatus,
+      isFavoritesOnly: isFavoritesOnly,
+      searchQuery: searchQuery,
+    });
+    return sortItems(filtered, sortBy);
+  }, [items, filterType, filterStatus, isFavoritesOnly, searchQuery, sortBy]);
 
   const handleEdit = (item) => {
     setEditingItem(item);
     setModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    deleteItem(id);
+  const handleDelete = async (id) => {
+    if (user) {
+      await deleteItem(user.id, id);
+    }
   };
 
   const handleCloseModal = () => {
     setModalOpen(false);
     setEditingItem(null);
   };
+
+  useEffect(() => {
+    if (!focusId) return;
+
+    setFilterType('all');
+    setFilterStatus('all');
+    setSearchQuery('');
+    setFocusedItemId(focusId);
+
+    const scrollTimer = setTimeout(() => {
+      const target = document.getElementById(`media-card-${focusId}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 80);
+
+    const clearTimer = setTimeout(() => {
+      setFocusedItemId(null);
+    }, 2200);
+
+    return () => {
+      clearTimeout(scrollTimer);
+      clearTimeout(clearTimer);
+    };
+  }, [focusId]);
+
+  if (loading) {
+    return <PageLoader title="Loading My List" subtitle="Syncing your tracked records" />;
+  }
 
   return (
     <div className="space-y-6">
@@ -68,9 +121,38 @@ const MyList = () => {
           />
         </div>
 
+        {/* Sort dropdown */}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="px-3 py-2 rounded-lg text-xs font-medium bg-surface-overlay/30 border border-surface-border text-text-secondary hover:text-text-primary transition-all cursor-pointer outline-none focus:border-gamma-500/50"
+        >
+          {sortOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              Sort: {opt.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Export button */}
+        <button
+          onClick={() => {
+            exportToCSV(filteredItems);
+            addToast('Library exported successfully', 'success');
+          }}
+          className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-surface-overlay/30 border border-surface-border text-text-secondary hover:text-gamma-400 hover:border-gamma-500/30 transition-all"
+          title="Export library as CSV"
+        >
+          <Download size={14} />
+          <span className="hidden sm:inline">Export</span>
+        </button>
+      </div>
+
+      {/* Type & Status Filters */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         {/* Type filter */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
-          <Filter size={14} className="text-text-muted" />
+          <Filter size={14} className="text-text-muted shrink-0" />
           {['all', 'anime', 'tv', 'movie', 'comic'].map((t) => (
             <button
               key={t}
@@ -102,6 +184,19 @@ const MyList = () => {
             </button>
           ))}
         </div>
+
+        {/* Favorites filter */}
+        <button
+          onClick={() => setIsFavoritesOnly(!isFavoritesOnly)}
+          className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            isFavoritesOnly
+              ? 'bg-accent-pink/10 text-accent-pink border border-accent-pink/50'
+              : 'bg-surface-overlay/30 text-text-muted border border-transparent hover:text-text-secondary'
+          }`}
+        >
+          <Heart size={12} className={isFavoritesOnly ? 'fill-accent-pink' : ''} />
+          Favorites
+        </button>
       </div>
 
       {/* Cards grid */}
@@ -109,12 +204,19 @@ const MyList = () => {
         <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
           <AnimatePresence mode="popLayout">
             {filteredItems.map((item) => (
-              <MediaCard
+              <div
                 key={item.id}
-                item={item}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
+                id={`media-card-${item.id}`}
+                className={`rounded-xl transition-all duration-500 ${
+                  focusedItemId === item.id ? 'ring-2 ring-gamma-500/80 ring-offset-2 ring-offset-surface-base' : ''
+                }`}
+              >
+                <MediaCard
+                  item={item}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              </div>
             ))}
           </AnimatePresence>
         </div>

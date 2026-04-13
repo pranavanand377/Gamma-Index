@@ -5,6 +5,7 @@ import {
   Pencil,
   Trash2,
   Star,
+  Heart,
   Tv,
   Film,
   BookOpen,
@@ -13,6 +14,7 @@ import {
   Plus,
 } from 'lucide-react';
 import useMediaStore from '../../store/useMediaStore';
+import useAuthStore from '../../store/useAuthStore';
 import useToastStore from '../../store/useToastStore';
 import ConfirmDeleteModal from '../common/ConfirmDeleteModal';
 
@@ -41,6 +43,7 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
   const [hovered, setHovered] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const updateItem = useMediaStore((s) => s.updateItem);
+  const user = useAuthStore((s) => s.user);
   const addToast = useToastStore((s) => s.addToast);
 
   const handleConfirmDelete = () => {
@@ -56,10 +59,21 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
     ? `S${item.season || 1} · ${episodeLabel} ${item.currentEpisode || 0}${item.totalEpisodes ? ` / ${item.totalEpisodes}` : ''}`
     : `${episodeLabel} ${item.currentEpisode || 0}${item.totalEpisodes ? ` / ${item.totalEpisodes}` : ''}`;
 
-  const handleEpisodeChange = (delta) => {
+  const handleEpisodeChange = async (delta) => {
+    if (!user) return;
     const newEp = Math.max(0, (item.currentEpisode || 0) + delta);
     if (item.totalEpisodes && newEp > item.totalEpisodes) return;
-    updateItem(item.id, { currentEpisode: newEp });
+    await updateItem(user.id, item.id, { currentEpisode: newEp });
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!user) return;
+    try {
+      await updateItem(user.id, item.id, { isFavorite: !item.isFavorite });
+      addToast(item.isFavorite ? `Removed "${item.title}" from favorites` : `Added "${item.title}" to favorites`, 'success');
+    } catch {
+      addToast('Failed to update favorite status', 'error');
+    }
   };
 
   return (
@@ -96,8 +110,19 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
           </span>
         </div>
 
-        {/* Type badge */}
-        <div className="absolute top-2 right-2">
+        {/* Top-right badges */}
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          <button
+            onClick={handleToggleFavorite}
+            className={`p-1.5 rounded-lg backdrop-blur-sm transition-colors ${
+              item.isFavorite
+                ? 'bg-accent-pink/20 text-accent-pink'
+                : 'bg-surface-base/60 text-text-secondary hover:text-accent-pink'
+            }`}
+            title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Heart size={14} className={item.isFavorite ? 'fill-accent-pink' : ''} />
+          </button>
           <div className="p-1.5 rounded-lg bg-surface-base/60 backdrop-blur-sm">
             <TypeIcon size={14} className="text-text-secondary" />
           </div>
@@ -187,6 +212,13 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
           )}
         </div>
       )}
+
+      {/* Footer with last updated timestamp */}
+      <div className="px-3 py-2 border-t border-surface-border/50 bg-surface-overlay/30">
+        <p className="text-[10px] text-text-muted">
+          Last updated: {item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+        </p>
+      </div>
 
       {/* Delete Confirmation Modal */}
       <ConfirmDeleteModal

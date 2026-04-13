@@ -17,6 +17,7 @@ import { searchAnime, fetchAnimeEpisodes, searchManga, fetchMangaChapters } from
 import { searchMovies } from '../../services/tmdbApi';
 import { searchTvSeries, fetchTvEpisodesBySeason } from '../../services/tvmazeApi';
 import useMediaStore from '../../store/useMediaStore';
+import useAuthStore from '../../store/useAuthStore';
 import useToastStore from '../../store/useToastStore';
 
 const TYPES = [
@@ -53,6 +54,7 @@ const modalVariants = {
 
 const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const addItem = useMediaStore((s) => s.addItem);
+  const user = useAuthStore((s) => s.user);
   const updateItem = useMediaStore((s) => s.updateItem);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -70,6 +72,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const [currentEpisode, setCurrentEpisode] = useState(0);
   const [season, setSeason] = useState(1);
   const [rating, setRating] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [watchLink, setWatchLink] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -101,6 +104,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setComicOffset(0);
       setTvAllEpisodes({});
       setRating(0);
+      setIsFavorite(false);
       setWatchLink('');
       setNotes('');
     }
@@ -126,6 +130,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setCurrentEpisode(editItem.currentEpisode || 0);
       setSeason(editItem.season || 1);
       setRating(editItem.rating || 0);
+      setIsFavorite(Boolean(editItem.isFavorite ?? editItem.is_favorite));
       setWatchLink(editItem.watchLink || '');
       setNotes(editItem.notes || '');
     }
@@ -191,8 +196,8 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     setStep(2);
   };
 
-  const handleSave = () => {
-    if (!selectedTitle) return;
+  const handleSave = async () => {
+    if (!selectedTitle || !user) return;
 
     const totalForSelectedSeason = type === 'tv'
       ? (tvEpisodesForSeason.length || null)
@@ -213,16 +218,23 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       currentEpisode,
       season: type === 'tv' ? season : null,
       rating,
+      isFavorite,
       watchLink,
       notes,
     };
 
-    if (editItem) {
-      updateItem(editItem.id, itemData);
-      addToast(`Updated "${selectedTitle.title}"`, 'success');
-    } else {
-      addItem(itemData);
-      addToast(`Added "${selectedTitle.title}" to your list`, 'success');
+    try {
+      if (editItem) {
+        await updateItem(user.id, editItem.id, itemData);
+        addToast(`Updated "${selectedTitle.title}"`, 'success');
+      } else {
+        await addItem(user.id, itemData);
+        addToast(`Added "${selectedTitle.title}" to your list`, 'success');
+      }
+      onClose();
+    } catch (err) {
+      console.error('[AddRecordModal] save error:', err);
+      addToast('Failed to save. Check console for details.', 'error');
     }
     onClose();
   };
@@ -425,6 +437,8 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
                   onLoadMore={handleLoadMoreEpisodes}
                   rating={rating}
                   setRating={setRating}
+                  isFavorite={isFavorite}
+                  setIsFavorite={setIsFavorite}
                   watchLink={watchLink}
                   setWatchLink={setWatchLink}
                   notes={notes}
@@ -707,6 +721,7 @@ const StepTwo = ({
   season, onSeasonChange, seasonsData, episodesData,
   loadingEpisodes, canLoadMore, loadMoreLabel, onLoadMore,
   rating, setRating,
+  isFavorite, setIsFavorite,
   watchLink, setWatchLink, notes, setNotes,
 }) => (
   <div className="space-y-5">
@@ -806,6 +821,25 @@ const StepTwo = ({
           <span className="ml-2 text-sm font-medium text-accent-amber">{rating}/10</span>
         )}
       </div>
+    </div>
+
+    {/* Favorite toggle */}
+    <div>
+      <label className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2 block">
+        Favorite
+      </label>
+      <button
+        type="button"
+        onClick={() => setIsFavorite((v) => !v)}
+        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+          isFavorite
+            ? 'border-accent-pink/60 bg-accent-pink/10 text-accent-pink'
+            : 'border-surface-border bg-surface-overlay/30 text-text-secondary hover:bg-surface-overlay/60'
+        }`}
+      >
+        <Star size={16} className={isFavorite ? 'fill-accent-pink' : ''} />
+        {isFavorite ? 'Marked as Favorite' : 'Mark as Favorite'}
+      </button>
     </div>
 
     {/* Watch Link */}

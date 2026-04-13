@@ -1,5 +1,8 @@
 import useMediaStore from '../store/useMediaStore';
 import { Tv, Film, BookOpen, Monitor, Clock, CheckCircle, Heart, TrendingUp } from 'lucide-react';
+import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import PageLoader from '../components/common/PageLoader';
+import { getGenreDistribution, getStatusDistribution, getTypeDistribution } from '../utils/filtering';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <div className="rounded-xl bg-surface-raised border border-surface-border p-4 flex items-center gap-4">
@@ -36,6 +39,11 @@ const RecentCard = ({ item }) => (
 
 const Dashboard = () => {
   const items = useMediaStore((s) => s.items);
+  const loading = useMediaStore((s) => s.loading);
+
+  if (loading) {
+    return <PageLoader title="Loading Dashboard" subtitle="Preparing your tracking overview" />;
+  }
 
   const animeCount = items.filter((i) => i.type === 'anime').length;
   const movieCount = items.filter((i) => i.type === 'movie').length;
@@ -43,11 +51,20 @@ const Dashboard = () => {
   const comicCount = items.filter((i) => i.type === 'comic').length;
   const watchingCount = items.filter((i) => i.status === 'watching').length;
   const completedCount = items.filter((i) => i.status === 'completed').length;
-  const favCount = items.filter((i) => i.rating >= 8).length;
+  const favCount = items.filter((i) => i.isFavorite).length;
 
   const recentItems = [...items]
     .sort((a, b) => new Date(b.lastWatched) - new Date(a.lastWatched))
     .slice(0, 6);
+
+  const genreData = getGenreDistribution(items);
+  const statusData = getStatusDistribution(items);
+  const typeData = getTypeDistribution(items);
+
+  const chartProps = {
+    className: 'w-full h-72',
+    margin: { top: 20, right: 30, left: 0, bottom: 20 },
+  };
 
   return (
     <div className="space-y-6">
@@ -64,13 +81,84 @@ const Dashboard = () => {
         <StatCard icon={Heart} label="Highly Rated" value={favCount} color="bg-accent-pink/10 text-accent-pink" />
       </div>
 
-      {/* By type */}
+      {/* By type - Cards view */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard icon={Tv} label="Anime" value={animeCount} color="bg-accent-cyan/10 text-accent-cyan" />
         <StatCard icon={Monitor} label="TV Series" value={tvCount} color="bg-gamma-500/10 text-gamma-400" />
         <StatCard icon={Film} label="Movies" value={movieCount} color="bg-accent-amber/10 text-accent-amber" />
         <StatCard icon={BookOpen} label="Comics" value={comicCount} color="bg-accent-pink/10 text-accent-pink" />
       </div>
+
+      {/* Charts section */}
+      {items.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Status Distribution */}
+          {statusData.length > 0 && (
+            <div className="rounded-xl bg-surface-raised border border-surface-border p-6">
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Status Distribution</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#10B981"
+                    dataKey="value"
+                  >
+                    {statusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Type Distribution */}
+          {typeData.length > 0 && (
+            <div className="rounded-xl bg-surface-raised border border-surface-border p-6">
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Media Type Distribution</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={typeData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" />
+                  <YAxis stroke="#9CA3AF" />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} />
+                  <Bar dataKey="value" fill="#10B981" radius={[8, 8, 0, 0]}>
+                    {typeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Top Genres */}
+          {genreData.length > 0 && (
+            <div className="rounded-xl bg-surface-raised border border-surface-border p-6 lg:col-span-2">
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Top Genres</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart
+                  data={genreData}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 200, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis type="number" stroke="#9CA3AF" />
+                  <YAxis dataKey="name" type="category" stroke="#9CA3AF" width={180} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} />
+                  <Bar dataKey="value" fill="#10B981" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recent activity */}
       {recentItems.length > 0 && (
