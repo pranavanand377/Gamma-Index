@@ -30,7 +30,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate required environment variables
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || (echo "Missing secret: VITE_SUPABASE_URL" && exit 1)
+          test -n "$VITE_SUPABASE_ANON_KEY" || (echo "Missing secret: VITE_SUPABASE_ANON_KEY" && exit 1)
+          test -n "$VITE_ADMIN_EMAIL" || (echo "Missing secret: VITE_ADMIN_EMAIL" && exit 1)
+
       - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
+          VITE_TMDB_API_KEY: ${{ secrets.VITE_TMDB_API_KEY }}
         run: npm run build
 
       - name: Upload Pages artifact
