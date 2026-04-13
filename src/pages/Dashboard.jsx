@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import useMediaStore from '../store/useMediaStore';
 import { Tv, Film, BookOpen, Monitor, Clock, CheckCircle, Heart, TrendingUp } from 'lucide-react';
-import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { Link } from 'react-router-dom';
 import PageLoader from '../components/common/PageLoader';
 import { getGenreDistribution, getStatusDistribution, getTypeDistribution } from '../utils/filtering';
 
@@ -17,7 +19,11 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
 );
 
 const RecentCard = ({ item }) => (
-  <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-overlay/30 border border-surface-border hover:border-gamma-500/20 transition-colors">
+  <Link
+    to={`/my-list?focus=${encodeURIComponent(item.id)}`}
+    className="flex items-center gap-3 p-3 rounded-xl bg-surface-overlay/30 border border-surface-border hover:border-gamma-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gamma-500/60 transition-colors"
+    title={`Open ${item.title} in My List`}
+  >
     {item.image ? (
       <img src={item.image} alt={item.title} className="w-10 h-14 rounded-lg object-cover shrink-0" />
     ) : (
@@ -34,12 +40,21 @@ const RecentCard = ({ item }) => (
         {item.type !== 'movie' && ' · '}{item.status.replace('_', ' ')}
       </p>
     </div>
-  </div>
+  </Link>
 );
 
 const Dashboard = () => {
   const items = useMediaStore((s) => s.items);
   const loading = useMediaStore((s) => s.loading);
+  const [isNarrow, setIsNarrow] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 768 : false));
+
+  useEffect(() => {
+    const onResize = () => {
+      setIsNarrow(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   if (loading) {
     return <PageLoader title="Loading Dashboard" subtitle="Preparing your tracking overview" />;
@@ -60,11 +75,6 @@ const Dashboard = () => {
   const genreData = getGenreDistribution(items);
   const statusData = getStatusDistribution(items);
   const typeData = getTypeDistribution(items);
-
-  const chartProps = {
-    className: 'w-full h-72',
-    margin: { top: 20, right: 30, left: 0, bottom: 20 },
-  };
 
   return (
     <div className="space-y-6">
@@ -123,7 +133,7 @@ const Dashboard = () => {
             <div className="rounded-xl bg-surface-raised border border-surface-border p-6">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Media Type Distribution</h3>
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={typeData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                <BarChart data={typeData} margin={{ top: 20, right: 12, left: 0, bottom: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" />
                   <YAxis stroke="#9CA3AF" />
@@ -145,14 +155,23 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart
                   data={genreData}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 200, bottom: 5 }}
+                  layout={isNarrow ? 'horizontal' : 'vertical'}
+                  margin={isNarrow ? { top: 10, right: 12, left: 0, bottom: 18 } : { top: 5, right: 20, left: 140, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis type="number" stroke="#9CA3AF" />
-                  <YAxis dataKey="name" type="category" stroke="#9CA3AF" width={180} />
+                  {isNarrow ? (
+                    <>
+                      <XAxis dataKey="name" stroke="#9CA3AF" interval={0} angle={-20} textAnchor="end" height={54} />
+                      <YAxis stroke="#9CA3AF" allowDecimals={false} />
+                    </>
+                  ) : (
+                    <>
+                      <XAxis type="number" stroke="#9CA3AF" allowDecimals={false} />
+                      <YAxis dataKey="name" type="category" stroke="#9CA3AF" width={130} />
+                    </>
+                  )}
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} />
-                  <Bar dataKey="value" fill="#10B981" radius={[0, 8, 8, 0]} />
+                  <Bar dataKey="value" fill="#10B981" radius={isNarrow ? [8, 8, 0, 0] : [0, 8, 8, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

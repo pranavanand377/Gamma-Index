@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, Download, Heart } from 'lucide-react';
+import { Plus, Search, Filter, Download, Heart, ChevronDown, Check } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import useMediaStore from '../store/useMediaStore';
 import useAuthStore from '../store/useAuthStore';
@@ -26,7 +26,9 @@ const MyList = () => {
   const [isFavoritesOnly, setIsFavoritesOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('date-added-newest');
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [focusedItemId, setFocusedItemId] = useState(null);
+  const sortMenuRef = useRef(null);
 
   const focusId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -84,6 +86,19 @@ const MyList = () => {
     };
   }, [focusId]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+        setSortMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   if (loading) {
     return <PageLoader title="Loading My List" subtitle="Syncing your tracked records" />;
   }
@@ -122,17 +137,45 @@ const MyList = () => {
         </div>
 
         {/* Sort dropdown */}
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="px-3 py-2 rounded-lg text-xs font-medium bg-surface-overlay/30 border border-surface-border text-text-secondary hover:text-text-primary transition-all cursor-pointer outline-none focus:border-gamma-500/50"
-        >
-          {sortOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              Sort: {opt.label}
-            </option>
-          ))}
-        </select>
+        <div className="relative" ref={sortMenuRef}>
+          <button
+            type="button"
+            onClick={() => setSortMenuOpen((prev) => !prev)}
+            className="inline-flex min-w-44 items-center justify-between gap-2 rounded-lg border border-surface-border bg-surface-overlay/30 px-3 py-2 text-xs font-medium text-text-secondary transition-all hover:text-text-primary hover:border-gamma-500/30"
+            aria-haspopup="listbox"
+            aria-expanded={sortMenuOpen}
+          >
+            <span className="truncate">Sort: {sortOptions.find((opt) => opt.value === sortBy)?.label}</span>
+            <ChevronDown size={14} className={`transition-transform ${sortMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {sortMenuOpen && (
+            <div className="absolute left-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-xl border border-surface-border bg-surface-raised shadow-2xl">
+              <div className="max-h-64 overflow-y-auto p-1.5">
+                {sortOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      setSortBy(opt.value);
+                      setSortMenuOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors ${
+                      sortBy === opt.value
+                        ? 'bg-gamma-500/10 text-gamma-300'
+                        : 'text-text-secondary hover:bg-surface-overlay/70 hover:text-text-primary'
+                    }`}
+                    role="option"
+                    aria-selected={sortBy === opt.value}
+                  >
+                    <span>{opt.label}</span>
+                    {sortBy === opt.value ? <Check size={14} /> : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Export button */}
         <button
