@@ -12,10 +12,12 @@ import {
   ChevronDown,
   ExternalLink,
   Loader2,
+  ImagePlus,
 } from 'lucide-react';
 import { searchAnime, fetchAnimeEpisodes, searchManga, fetchMangaChapters } from '../../services/jikanApi';
 import { searchMovies } from '../../services/tmdbApi';
 import { searchTvSeries, fetchTvEpisodesBySeason } from '../../services/tvmazeApi';
+import { supabase } from '../../services/supabase';
 import useMediaStore from '../../store/useMediaStore';
 import useAuthStore from '../../store/useAuthStore';
 import useToastStore from '../../store/useToastStore';
@@ -70,6 +72,8 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const [manualTitle, setManualTitle] = useState('');
   const [manualYear, setManualYear] = useState('');
   const [manualImage, setManualImage] = useState('');
+  const [manualImageFile, setManualImageFile] = useState(null);
+  const [manualImagePreview, setManualImagePreview] = useState('');
   const [manualSynopsis, setManualSynopsis] = useState('');
   const [manualTotalEpisodes, setManualTotalEpisodes] = useState(0);
 
@@ -107,6 +111,8 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setManualTitle('');
       setManualYear('');
       setManualImage('');
+      setManualImageFile(null);
+      setManualImagePreview('');
       setManualSynopsis('');
       setStatus('watching');
       setCurrentEpisode(0);
@@ -148,6 +154,17 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setManualTotalEpisodes(editItem.totalEpisodes || 0);
     }
   }, [editItem]);
+
+  useEffect(() => {
+    if (!manualImageFile) {
+      setManualImagePreview('');
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(manualImageFile);
+    setManualImagePreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [manualImageFile]);
 
   // Debounced search
   const performSearch = useCallback(async (query, mediaType, subtype) => {
@@ -222,7 +239,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     setSelectedTitle({
       apiId: null,
       title: trimmedTitle,
-      image: manualImage.trim() || null,
+      image: manualImagePreview || manualImage.trim() || null,
       synopsis: manualSynopsis.trim() || '',
       totalEpisodes: manualTotalEpisodes > 0 ? Number(manualTotalEpisodes) : null,
       year: manualYear ? Number(manualYear) : null,
@@ -239,6 +256,24 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     setStep(2);
   };
 
+  const uploadManualImage = async () => {
+    if (!manualImageFile || !user) return null;
+
+    const ext = manualImageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const safeExt = ext.replace(/[^a-z0-9]/g, '') || 'jpg';
+    const filePath = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${safeExt}`;
+
+    const { error: uploadError } = await supabase
+      .storage
+      .from('media-images')
+      .upload(filePath, manualImageFile, { upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('media-images').getPublicUrl(filePath);
+    return data?.publicUrl || null;
+  };
+
   const handleSave = async () => {
     if (!selectedTitle || !user) return;
 
@@ -249,12 +284,31 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       return selectedTitle.totalEpisodes ?? null;
     })();
 
+    let resolvedImage = selectedTitle.image;
+
+    try {
+      if (manualImageFile) {
+        const uploadedUrl = await uploadManualImage();
+        if (uploadedUrl) {
+          resolvedImage = uploadedUrl;
+        }
+      } else if (manualImage.trim()) {
+        resolvedImage = manualImage.trim();
+      }
+    } catch (uploadErr) {
+      console.error('[AddRecordModal] manual image upload error:', uploadErr);
+      addToast('Image upload failed. Saving record without uploaded image.', 'error');
+      if (!manualImage.trim()) {
+        resolvedImage = null;
+      }
+    }
+
     const itemData = {
       type,
       comicSubtype: type === 'comic' ? comicSubtype : null,
       apiId: selectedTitle.apiId,
       title: selectedTitle.title,
-      image: selectedTitle.image,
+      image: resolvedImage,
       synopsis: selectedTitle.synopsis,
       totalEpisodes: totalForSelectedSeason,
       year: selectedTitle.year,
@@ -470,6 +524,9 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
                   setManualYear={setManualYear}
                   manualImage={manualImage}
                   setManualImage={setManualImage}
+                  manualImageFile={manualImageFile}
+                  setManualImageFile={setManualImageFile}
+                  manualImagePreview={manualImagePreview}
                   manualSynopsis={manualSynopsis}
                   setManualSynopsis={setManualSynopsis}
                   manualTotalEpisodes={manualTotalEpisodes}
@@ -540,6 +597,8 @@ const StepOne = ({
   manualTitle, setManualTitle,
   manualYear, setManualYear,
   manualImage, setManualImage,
+  manualImageFile, setManualImageFile,
+  manualImagePreview,
   manualSynopsis, setManualSynopsis,
   manualTotalEpisodes, setManualTotalEpisodes,
   onContinueManual,
@@ -626,7 +685,7 @@ const StepOne = ({
     </div>
 
     <div className="flex items-center justify-between rounded-xl border border-surface-border bg-surface-overlay/20 px-3 py-2.5">
-      <p className="text-xs text-text-muted">API not finding the right result?</p>
+      <p className="text-xs text-text-muted">Couldn't find the title? Add manually.</p>
       <button
         type="button"
         onClick={() => setManualEntry((v) => !v)}
@@ -652,7 +711,7 @@ const StepOne = ({
             placeholder="Year"
             value={manualYear}
             onChange={(e) => setManualYear(e.target.value)}
-            className="w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
+            className="number-input-clean w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
           />
           <input
             type="number"
@@ -660,12 +719,37 @@ const StepOne = ({
             placeholder={type === 'comic' ? 'Total Chapters' : 'Total Episodes'}
             value={manualTotalEpisodes || ''}
             onChange={(e) => setManualTotalEpisodes(Number(e.target.value) || 0)}
-            className="w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
+            className="number-input-clean w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
           />
         </div>
+
+        <label className="block">
+          <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-text-muted">Upload Poster/Image</span>
+          <div className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-surface-border bg-surface-overlay/30 px-3 py-3 text-sm text-text-secondary transition-colors hover:border-gamma-500/40 hover:text-text-primary">
+            <ImagePlus size={16} />
+            <span>{manualImageFile ? manualImageFile.name : 'Choose image file'}</span>
+          </div>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            onChange={(e) => setManualImageFile(e.target.files?.[0] || null)}
+            className="hidden"
+          />
+        </label>
+
+        {manualImagePreview && (
+          <div className="rounded-lg border border-surface-border bg-surface-overlay/20 p-2">
+            <img
+              src={manualImagePreview}
+              alt="Manual upload preview"
+              className="h-36 w-full rounded-md object-cover"
+            />
+          </div>
+        )}
+
         <input
           type="url"
-          placeholder="Poster/Image URL (optional)"
+          placeholder="or paste image URL (optional)"
           value={manualImage}
           onChange={(e) => setManualImage(e.target.value)}
           className="w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
@@ -853,7 +937,7 @@ const EpisodePicker = ({
               min="1"
               value={season}
               onChange={(e) => onSeasonChange(Math.max(1, Number(e.target.value) || 1))}
-              className="w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
+              className="number-input-clean w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
             />
           </div>
         )}
@@ -864,7 +948,7 @@ const EpisodePicker = ({
             min="0"
             value={currentEpisode}
             onChange={(e) => setCurrentEpisode(Math.max(0, Number(e.target.value) || 0))}
-            className="w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
+            className="number-input-clean w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
           />
         </div>
         <div>
@@ -874,7 +958,7 @@ const EpisodePicker = ({
             min="0"
             value={manualTotalEpisodes || ''}
             onChange={(e) => setManualTotalEpisodes(Math.max(0, Number(e.target.value) || 0))}
-            className="w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
+            className="number-input-clean w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
           />
         </div>
       </div>
