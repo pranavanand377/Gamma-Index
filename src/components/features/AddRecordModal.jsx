@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -76,6 +76,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const [manualImagePreview, setManualImagePreview] = useState('');
   const [manualSynopsis, setManualSynopsis] = useState('');
   const [manualTotalEpisodes, setManualTotalEpisodes] = useState(0);
+  const [manualSeasonTotals, setManualSeasonTotals] = useState({});
 
   // Step 2 fields
   const [status, setStatus] = useState('watching');
@@ -114,6 +115,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setManualImageFile(null);
       setManualImagePreview('');
       setManualSynopsis('');
+      setManualSeasonTotals({});
       setStatus('watching');
       setCurrentEpisode(0);
       setSeason(1);
@@ -152,6 +154,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setWatchLink(editItem.watchLink || '');
       setNotes(editItem.notes || '');
       setManualTotalEpisodes(editItem.totalEpisodes || 0);
+      setManualSeasonTotals(editItem.type === 'tv' ? { [editItem.season || 1]: editItem.totalEpisodes || 0 } : {});
     }
   }, [editItem]);
 
@@ -213,6 +216,8 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     setSearchResults([]);
     setSearchQuery('');
     setManualEntry(false);
+    setManualSeasonTotals({});
+    setManualTotalEpisodes(0);
   };
 
   const handleSelectTitle = (result) => {
@@ -226,6 +231,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     setComicHasMore(false);
     setComicOffset(0);
     setTvAllEpisodes({});
+    setManualSeasonTotals({});
     setStep(2);
   };
 
@@ -253,7 +259,19 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     setComicHasMore(false);
     setComicOffset(0);
     setTvAllEpisodes({});
+    setManualSeasonTotals(type === 'tv' ? { 1: manualTotalEpisodes > 0 ? Number(manualTotalEpisodes) : 0 } : {});
     setStep(2);
+  };
+
+  const handleManualTotalEpisodesChange = (value) => {
+    const normalized = Math.max(0, Number(value) || 0);
+    setManualTotalEpisodes(normalized);
+    if (type === 'tv') {
+      setManualSeasonTotals((prev) => ({
+        ...prev,
+        [season]: normalized,
+      }));
+    }
   };
 
   const uploadManualImage = async () => {
@@ -341,7 +359,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
 
   // Fetch TV seasons when title changes
   useEffect(() => {
-    if (!selectedTitle || step !== 2 || type !== 'tv') return;
+    if (!selectedTitle || !selectedTitle.apiId || step !== 2 || type !== 'tv') return;
     let cancelled = false;
     setTvAllEpisodes({});
     setLoadingEpisodes(true);
@@ -353,7 +371,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
 
   // Fetch anime episodes when title changes
   useEffect(() => {
-    if (!selectedTitle || step !== 2 || type !== 'anime') return;
+    if (!selectedTitle || !selectedTitle.apiId || step !== 2 || type !== 'anime') return;
     let cancelled = false;
     setEpisodesData([]);
     setAnimeHasMore(false);
@@ -374,7 +392,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
 
   // Fetch comic chapters when title changes
   useEffect(() => {
-    if (!selectedTitle || step !== 2 || type !== 'comic') return;
+    if (!selectedTitle || !selectedTitle.apiId || step !== 2 || type !== 'comic') return;
     let cancelled = false;
     setEpisodesData([]);
     setComicHasMore(false);
@@ -392,10 +410,37 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   }, [selectedTitle?.apiId, type, step]); // eslint-disable-line
 
   const handleSeasonChange = (newSeason) => {
-    setSeason(newSeason);
+    const normalizedSeason = Math.max(1, Number(newSeason) || 1);
+    const nextTotal = manualSeasonTotals[normalizedSeason] ?? 0;
+    setManualSeasonTotals((prev) => (
+      prev[normalizedSeason] === undefined
+        ? { ...prev, [normalizedSeason]: 0 }
+        : prev
+    ));
+    setManualTotalEpisodes(nextTotal);
+    setSeason(normalizedSeason);
     setCurrentEpisode(0);
     // TV episodes already cached in tvAllEpisodes — no extra API call needed
   };
+
+  const buildSequentialEpisodes = useCallback((count, prefix = 'Episode') => (
+    Array.from({ length: count }, (_, idx) => ({ number: idx + 1, name: `${prefix} ${idx + 1}` }))
+  ), []);
+
+  const getTvEpisodesForSeason = useCallback((selectedSeason) => {
+    const apiEpisodes = tvAllEpisodes[selectedSeason] || [];
+    const manualCount = manualSeasonTotals[selectedSeason] ?? 0;
+
+    if (manualCount <= 0) return apiEpisodes;
+    if (apiEpisodes.length === 0) return buildSequentialEpisodes(manualCount);
+    if (manualCount <= apiEpisodes.length) return apiEpisodes.slice(0, manualCount);
+
+    const padded = [...apiEpisodes];
+    for (let n = apiEpisodes.length + 1; n <= manualCount; n += 1) {
+      padded.push({ number: n, name: `Episode ${n}` });
+    }
+    return padded;
+  }, [buildSequentialEpisodes, manualSeasonTotals, tvAllEpisodes]);
 
   const handleLoadMoreEpisodes = useCallback(async () => {
     if (loadingEpisodes || !selectedTitle) return;
@@ -441,11 +486,19 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const episodeLabel = type === 'comic' ? 'Chapter' : 'Episode';
 
   // Derived: seasons list and current-season episodes for TV
-  const tvSeasonsData = Object.keys(tvAllEpisodes)
-    .map(Number)
+  const tvSeasonsData = Array.from(new Set([
+    ...Object.keys(tvAllEpisodes).map(Number),
+    ...Object.keys(manualSeasonTotals).map(Number),
+    season,
+  ]))
+    .filter((n) => Number.isFinite(n) && n > 0)
     .sort((a, b) => a - b)
-    .map((n) => ({ number: n, name: `Season ${n}`, episodeCount: tvAllEpisodes[n]?.length || 0 }));
-  const tvEpisodesForSeason = tvAllEpisodes[season] || [];
+    .map((n) => ({
+      number: n,
+      name: `Season ${n}`,
+      episodeCount: (manualSeasonTotals[n] ?? 0) || (tvAllEpisodes[n]?.length || 0),
+    }));
+  const tvEpisodesForSeason = getTvEpisodesForSeason(season);
   const canLoadMore = type === 'comic' ? comicHasMore : animeHasMore;
   const loadMoreLabel = type === 'comic' ? 'Load more chapters' : 'Load more episodes';
 
@@ -560,7 +613,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
                   notes={notes}
                   setNotes={setNotes}
                   manualTotalEpisodes={manualTotalEpisodes}
-                  setManualTotalEpisodes={setManualTotalEpisodes}
+                  onManualTotalEpisodesChange={handleManualTotalEpisodesChange}
                 />
               )}
             </div>
@@ -827,9 +880,17 @@ const EpisodePicker = ({
   type, season, onSeasonChange, seasonsData, episodesData,
   loadingEpisodes, currentEpisode, setCurrentEpisode,
   canLoadMore, loadMoreLabel, onLoadMore, episodeLabel,
-  manualTotalEpisodes, setManualTotalEpisodes,
+  manualTotalEpisodes, onManualTotalEpisodesChange,
 }) => {
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
+  const displayEpisodes = useMemo(() => {
+    if (episodesData.length > 0) return episodesData;
+    if (manualTotalEpisodes <= 0) return [];
+    return Array.from({ length: manualTotalEpisodes }, (_, idx) => ({
+      number: idx + 1,
+      name: `${episodeLabel} ${idx + 1}`,
+    }));
+  }, [episodesData, manualTotalEpisodes, episodeLabel]);
 
   return (
   <div className="space-y-3">
@@ -885,15 +946,15 @@ const EpisodePicker = ({
     )}
 
     {/* Episode cards — numbers only, compact */}
-    {loadingEpisodes && episodesData.length === 0 ? (
+    {loadingEpisodes && displayEpisodes.length === 0 ? (
       <div className="flex items-center justify-center h-24 gap-2 text-text-muted text-sm rounded-xl border border-surface-border">
         <Loader2 size={16} className="animate-spin text-gamma-400" />
         Loading episodes…
       </div>
-    ) : episodesData.length > 0 ? (
+    ) : displayEpisodes.length > 0 ? (
       <div className="space-y-2">
         <div className="grid grid-cols-6 gap-1 sm:grid-cols-8 lg:grid-cols-10 max-h-52 overflow-y-auto pr-1">
-          {episodesData.map((ep) => (
+          {displayEpisodes.map((ep) => (
             <button
               key={ep.number}
               onClick={() => setCurrentEpisode(ep.number === currentEpisode ? 0 : ep.number)}
@@ -957,7 +1018,7 @@ const EpisodePicker = ({
             type="number"
             min="0"
             value={manualTotalEpisodes || ''}
-            onChange={(e) => setManualTotalEpisodes(Math.max(0, Number(e.target.value) || 0))}
+            onChange={(e) => onManualTotalEpisodesChange(e.target.value)}
             className="number-input-clean w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
           />
         </div>
@@ -976,7 +1037,7 @@ const StepTwo = ({
   rating, setRating,
   isFavorite, setIsFavorite,
   watchLink, setWatchLink, notes, setNotes,
-  manualTotalEpisodes, setManualTotalEpisodes,
+  manualTotalEpisodes, onManualTotalEpisodesChange,
 }) => (
   <div className="space-y-5">
     {/* Selected title preview */}
@@ -1051,7 +1112,7 @@ const StepTwo = ({
         onLoadMore={onLoadMore}
         episodeLabel={episodeLabel}
         manualTotalEpisodes={manualTotalEpisodes}
-        setManualTotalEpisodes={setManualTotalEpisodes}
+        onManualTotalEpisodesChange={onManualTotalEpisodesChange}
       />
     )}
 
