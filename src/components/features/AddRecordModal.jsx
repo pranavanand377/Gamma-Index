@@ -66,6 +66,12 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
   const [selectedTitle, setSelectedTitle] = useState(null);
+  const [manualEntry, setManualEntry] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualYear, setManualYear] = useState('');
+  const [manualImage, setManualImage] = useState('');
+  const [manualSynopsis, setManualSynopsis] = useState('');
+  const [manualTotalEpisodes, setManualTotalEpisodes] = useState(0);
 
   // Step 2 fields
   const [status, setStatus] = useState('watching');
@@ -97,6 +103,11 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setSearchResults([]);
       setSearchError(null);
       setSelectedTitle(null);
+      setManualEntry(false);
+      setManualTitle('');
+      setManualYear('');
+      setManualImage('');
+      setManualSynopsis('');
       setStatus('watching');
       setCurrentEpisode(0);
       setSeason(1);
@@ -107,6 +118,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setIsFavorite(false);
       setWatchLink('');
       setNotes('');
+      setManualTotalEpisodes(0);
     }
   }, [isOpen, editItem]);
 
@@ -133,6 +145,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setIsFavorite(Boolean(editItem.isFavorite ?? editItem.is_favorite));
       setWatchLink(editItem.watchLink || '');
       setNotes(editItem.notes || '');
+      setManualTotalEpisodes(editItem.totalEpisodes || 0);
     }
   }, [editItem]);
 
@@ -182,10 +195,40 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
     setType(newType);
     setSearchResults([]);
     setSearchQuery('');
+    setManualEntry(false);
   };
 
   const handleSelectTitle = (result) => {
     setSelectedTitle(result);
+    setManualTotalEpisodes(result.totalEpisodes || 0);
+    setManualEntry(false);
+    setCurrentEpisode(0);
+    setSeason(1);
+    setSeasonsData([]);
+    setEpisodesData([]);
+    setComicHasMore(false);
+    setComicOffset(0);
+    setTvAllEpisodes({});
+    setStep(2);
+  };
+
+  const handleContinueManual = () => {
+    const trimmedTitle = manualTitle.trim();
+    if (!trimmedTitle) {
+      addToast('Please enter a title to continue', 'error');
+      return;
+    }
+
+    setSelectedTitle({
+      apiId: null,
+      title: trimmedTitle,
+      image: manualImage.trim() || null,
+      synopsis: manualSynopsis.trim() || '',
+      totalEpisodes: manualTotalEpisodes > 0 ? Number(manualTotalEpisodes) : null,
+      year: manualYear ? Number(manualYear) : null,
+      genres: [],
+      score: null,
+    });
     setCurrentEpisode(0);
     setSeason(1);
     setSeasonsData([]);
@@ -199,9 +242,12 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const handleSave = async () => {
     if (!selectedTitle || !user) return;
 
-    const totalForSelectedSeason = type === 'tv'
-      ? (tvEpisodesForSeason.length || null)
-      : selectedTitle.totalEpisodes;
+    const totalForSelectedSeason = (() => {
+      if (!hasEpisodes) return null;
+      if (manualTotalEpisodes > 0) return Number(manualTotalEpisodes);
+      if (type === 'tv') return tvEpisodesForSeason.length || null;
+      return selectedTitle.totalEpisodes ?? null;
+    })();
 
     const itemData = {
       type,
@@ -416,6 +462,19 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
                   searchError={searchError}
                   searching={searching}
                   onSelect={handleSelectTitle}
+                  manualEntry={manualEntry}
+                  setManualEntry={setManualEntry}
+                  manualTitle={manualTitle}
+                  setManualTitle={setManualTitle}
+                  manualYear={manualYear}
+                  setManualYear={setManualYear}
+                  manualImage={manualImage}
+                  setManualImage={setManualImage}
+                  manualSynopsis={manualSynopsis}
+                  setManualSynopsis={setManualSynopsis}
+                  manualTotalEpisodes={manualTotalEpisodes}
+                  setManualTotalEpisodes={setManualTotalEpisodes}
+                  onContinueManual={handleContinueManual}
                 />
               ) : (
                 <StepTwo
@@ -443,6 +502,8 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
                   setWatchLink={setWatchLink}
                   notes={notes}
                   setNotes={setNotes}
+                  manualTotalEpisodes={manualTotalEpisodes}
+                  setManualTotalEpisodes={setManualTotalEpisodes}
                 />
               )}
             </div>
@@ -475,6 +536,13 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
 const StepOne = ({
   type, setType, comicSubtype, setComicSubtype,
   searchQuery, setSearchQuery, searchResults, searchError, searching, onSelect,
+  manualEntry, setManualEntry,
+  manualTitle, setManualTitle,
+  manualYear, setManualYear,
+  manualImage, setManualImage,
+  manualSynopsis, setManualSynopsis,
+  manualTotalEpisodes, setManualTotalEpisodes,
+  onContinueManual,
 }) => (
   <div className="space-y-5">
     {/* Type selector */}
@@ -557,6 +625,68 @@ const StepOne = ({
       </div>
     </div>
 
+    <div className="flex items-center justify-between rounded-xl border border-surface-border bg-surface-overlay/20 px-3 py-2.5">
+      <p className="text-xs text-text-muted">API not finding the right result?</p>
+      <button
+        type="button"
+        onClick={() => setManualEntry((v) => !v)}
+        className="text-xs font-semibold text-gamma-400 hover:text-gamma-300 transition-colors"
+      >
+        {manualEntry ? 'Use API Search' : 'Add Manually'}
+      </button>
+    </div>
+
+    {manualEntry && (
+      <div className="space-y-3 rounded-xl border border-surface-border bg-surface-overlay/20 p-3 sm:p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Manual Record Details</p>
+        <input
+          type="text"
+          placeholder="Title *"
+          value={manualTitle}
+          onChange={(e) => setManualTitle(e.target.value)}
+          className="w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
+        />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <input
+            type="number"
+            placeholder="Year"
+            value={manualYear}
+            onChange={(e) => setManualYear(e.target.value)}
+            className="w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder={type === 'comic' ? 'Total Chapters' : 'Total Episodes'}
+            value={manualTotalEpisodes || ''}
+            onChange={(e) => setManualTotalEpisodes(Number(e.target.value) || 0)}
+            className="w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
+          />
+        </div>
+        <input
+          type="url"
+          placeholder="Poster/Image URL (optional)"
+          value={manualImage}
+          onChange={(e) => setManualImage(e.target.value)}
+          className="w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50"
+        />
+        <textarea
+          rows={3}
+          placeholder="Synopsis (optional)"
+          value={manualSynopsis}
+          onChange={(e) => setManualSynopsis(e.target.value)}
+          className="w-full bg-surface-overlay/50 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-gamma-500/50 resize-none"
+        />
+        <button
+          type="button"
+          onClick={onContinueManual}
+          className="w-full rounded-lg bg-gamma-500 px-4 py-2.5 text-sm font-semibold text-surface-base transition-colors hover:bg-gamma-400"
+        >
+          Continue With Manual Details
+        </button>
+      </div>
+    )}
+
     {/* Results */}
     {searchResults.length > 0 && (
       <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -613,6 +743,7 @@ const EpisodePicker = ({
   type, season, onSeasonChange, seasonsData, episodesData,
   loadingEpisodes, currentEpisode, setCurrentEpisode,
   canLoadMore, loadMoreLabel, onLoadMore, episodeLabel,
+  manualTotalEpisodes, setManualTotalEpisodes,
 }) => {
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
 
@@ -710,6 +841,44 @@ const EpisodePicker = ({
         No episode data available
       </div>
     )}
+
+    <div className="rounded-xl border border-surface-border bg-surface-overlay/20 p-3 space-y-2.5">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Manual Override</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {type === 'tv' && (
+          <div>
+            <label className="mb-1 block text-[11px] text-text-muted">Season</label>
+            <input
+              type="number"
+              min="1"
+              value={season}
+              onChange={(e) => onSeasonChange(Math.max(1, Number(e.target.value) || 1))}
+              className="w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
+            />
+          </div>
+        )}
+        <div>
+          <label className="mb-1 block text-[11px] text-text-muted">Current {episodeLabel}</label>
+          <input
+            type="number"
+            min="0"
+            value={currentEpisode}
+            onChange={(e) => setCurrentEpisode(Math.max(0, Number(e.target.value) || 0))}
+            className="w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] text-text-muted">Total {type === 'comic' ? 'Chapters' : 'Episodes'}</label>
+          <input
+            type="number"
+            min="0"
+            value={manualTotalEpisodes || ''}
+            onChange={(e) => setManualTotalEpisodes(Math.max(0, Number(e.target.value) || 0))}
+            className="w-full rounded-lg border border-surface-border bg-surface-overlay/40 px-3 py-2 text-sm text-text-primary outline-none focus:border-gamma-500/50"
+          />
+        </div>
+      </div>
+    </div>
   </div>
   );
 };
@@ -723,6 +892,7 @@ const StepTwo = ({
   rating, setRating,
   isFavorite, setIsFavorite,
   watchLink, setWatchLink, notes, setNotes,
+  manualTotalEpisodes, setManualTotalEpisodes,
 }) => (
   <div className="space-y-5">
     {/* Selected title preview */}
@@ -796,6 +966,8 @@ const StepTwo = ({
         loadMoreLabel={loadMoreLabel}
         onLoadMore={onLoadMore}
         episodeLabel={episodeLabel}
+        manualTotalEpisodes={manualTotalEpisodes}
+        setManualTotalEpisodes={setManualTotalEpisodes}
       />
     )}
 
