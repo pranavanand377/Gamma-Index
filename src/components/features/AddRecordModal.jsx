@@ -317,7 +317,11 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       }
     } catch (uploadErr) {
       console.error('[AddRecordModal] manual image upload error:', uploadErr);
-      addToast('Image upload failed. Saving record without uploaded image.', 'error');
+      const rawMessage = String(uploadErr?.message || '').toLowerCase();
+      const guidance = rawMessage.includes('bucket') || rawMessage.includes('storage') || rawMessage.includes('row-level security')
+        ? 'Image upload failed (storage bucket/policy missing). Saving without uploaded image.'
+        : 'Image upload failed. Saving record without uploaded image.';
+      addToast(guidance, 'error');
       if (!manualImage.trim()) {
         resolvedImage = null;
       }
