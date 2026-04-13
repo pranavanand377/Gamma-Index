@@ -9,6 +9,28 @@ const isAdminEmail = (email) => {
   return email.toLowerCase() === ADMIN_EMAIL;
 };
 
+const getAppBaseUrl = () => {
+  if (typeof window === 'undefined') return '';
+  const base = new URL(import.meta.env.BASE_URL || '/', window.location.origin);
+  return base.toString();
+};
+
+const getAuthRedirectUrl = () => {
+  const base = getAppBaseUrl();
+  if (!base) return '';
+  return import.meta.env.PROD
+    ? `${base}#/auth/callback`
+    : `${base}auth/callback`;
+};
+
+const getResetRedirectUrl = () => {
+  const base = getAppBaseUrl();
+  if (!base) return '';
+  return import.meta.env.PROD
+    ? `${base}#/auth/reset-password`
+    : `${base}auth/reset-password`;
+};
+
 const ensureOwnProfile = async (user) => {
   if (!user) return null;
 
@@ -137,7 +159,7 @@ const useAuthStore = create((set) => ({
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: getAuthRedirectUrl(),
         },
       });
       if (error) throw error;
@@ -154,7 +176,7 @@ const useAuthStore = create((set) => ({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: getAuthRedirectUrl(),
         },
       });
       if (error) throw error;
@@ -186,7 +208,7 @@ const useAuthStore = create((set) => ({
     set({ error: null });
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: getResetRedirectUrl(),
       });
       if (error) throw error;
     } catch (err) {
