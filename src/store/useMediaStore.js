@@ -2,6 +2,15 @@ import { create } from 'zustand';
 import { supabase } from '../services/supabase';
 import { logError, extractError } from '../services/errorLogger';
 
+const DB_TIMEOUT_MS = 15000;
+
+const withDbTimeout = async (queryPromise, timeoutMs = DB_TIMEOUT_MS) => {
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Database request timed out. Please try again.')), timeoutMs)
+  );
+  return Promise.race([queryPromise, timeoutPromise]);
+};
+
 const mapDbToApp = (row) => ({
   ...row,
   comicSubtype: row.comic_subtype,
@@ -28,7 +37,12 @@ const mapAppToDb = (item) => ({
   current_episode: item.currentEpisode ?? item.current_episode ?? 0,
   season: item.season ?? null,
   rating: item.rating ?? null,
-  watch_link: item.watchLink ?? item.watch_link ?? null,
+  watch_link: (() => {
+    const url = item.watchLink ?? item.watch_link ?? null;
+    if (!url) return null;
+    const trimmed = String(url).trim();
+    return trimmed.length > 0 ? trimmed : null;
+  })(),
   notes: item.notes ?? null,
   is_favorite: item.isFavorite ?? item.is_favorite ?? false,
 });
@@ -75,11 +89,13 @@ const useMediaStore = create((set, get) => ({
   fetchItems: async (userId) => {
     set({ loading: true });
     try {
-      const { data, error } = await supabase
-        .from('items')
-        .select('*')
-        .eq('user_id', userId)
-        .order('added_at', { ascending: false });
+      const { data, error } = await withDbTimeout(
+        supabase
+          .from('items')
+          .select('*')
+          .eq('user_id', userId)
+          .order('added_at', { ascending: false })
+      );
 
       if (error) throw error;
       set({ items: (data || []).map(mapDbToApp), loading: false });
@@ -103,19 +119,25 @@ const useMediaStore = create((set, get) => ({
     };
 
     try {
-      const { data, error } = await supabase
-        .from('items')
-        .insert([newItem])
-        .select()
-        .single();
+      const { data, error } = await withDbTimeout(
+        supabase
+          .from('items')
+          .insert([newItem])
+          .select()
+          .single()
+      );
 
-      if (error) throw error;
+      if (error) {
+        const errMsg = `Supabase insert failed: ${error.message || error.code || 'unknown error'}`;
+        console.error('[useMediaStore] addItem supabase error:', errMsg, { error, newItem });
+        throw new Error(errMsg);
+      }
       const inserted = mapDbToApp(data || newItem);
       set({ items: [inserted, ...get().items] });
       return inserted;
     } catch (err) {
-      console.error('[useMediaStore] addItem error:', err);
-      logError({ errorType: 'api', ...extractError(err), source: 'useMediaStore.addItem' });
+      console.error('[useMediaStore] addItem error:', err, { item: newItem });
+      logError({ errorType: 'api', ...extractError(err), source: 'useMediaStore.addItem', metadata: { watchLink: newItem.watch_link } });
       throw err;
     }
   },
@@ -127,15 +149,21 @@ const useMediaStore = create((set, get) => ({
     };
 
     try {
-      const { data, error } = await supabase
-        .from('items')
-        .update(dbUpdates)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .single();
+      const { data, error } = await withDbTimeout(
+        supabase
+          .from('items')
+          .update(dbUpdates)
+          .eq('id', id)
+          .eq('user_id', userId)
+          .select()
+          .single()
+      );
 
-      if (error) throw error;
+      if (error) {
+        const errMsg = `Supabase update failed: ${error.message || error.code || 'unknown error'}`;
+        console.error('[useMediaStore] updateItem supabase error:', errMsg, { error, id, dbUpdates });
+        throw new Error(errMsg);
+      }
 
       const updatedItem = mapDbToApp(data);
 
@@ -145,19 +173,21 @@ const useMediaStore = create((set, get) => ({
         ),
       });
     } catch (err) {
-      console.error('[useMediaStore] updateItem error:', err);
-      logError({ errorType: 'api', ...extractError(err), source: 'useMediaStore.updateItem' });
+      console.error('[useMediaStore] updateItem error:', err, { id, updates });
+      logError({ errorType: 'api', ...extractError(err), source: 'useMediaStore.updateItem', metadata: { watchLink: dbUpdates.watch_link } });
       throw err;
     }
   },
 
   deleteItem: async (userId, id) => {
     try {
-      const { error } = await supabase
-        .from('items')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
+      const { error } = await withDbTimeout(
+        supabase
+          .from('items')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', userId)
+      );
 
       if (error) throw error;
       set({ items: get().items.filter((item) => item.id !== id) });

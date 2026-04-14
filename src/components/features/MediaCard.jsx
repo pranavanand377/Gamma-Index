@@ -136,11 +136,11 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
           </div>
         </div>
 
-        {/* Hover actions */}
+        {/* Action buttons — always visible on mobile, hover-reveal on desktop */}
         <motion.div
           initial={false}
           animate={{ opacity: hovered ? 1 : 0 }}
-          className="absolute top-2 right-2 flex flex-col gap-1.5 pointer-events-none group-hover:pointer-events-auto"
+          className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-100 pointer-events-auto md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto transition-opacity"
           style={{ top: '2.5rem' }}
         >
           {item.watchLink && (

@@ -104,17 +104,17 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Status Distribution */}
           {statusData.length > 0 && (
-            <div className="rounded-xl bg-surface-raised border border-surface-border p-6">
+            <div className="rounded-xl bg-surface-raised border border-surface-border p-4 sm:p-6">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Status Distribution</h3>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={isNarrow ? 240 : 280}>
                 <PieChart>
                   <Pie
                     data={statusData}
                     cx="50%"
                     cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
+                    labelLine={!isNarrow}
+                    label={isNarrow ? false : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={isNarrow ? 70 : 80}
                     fill="#10B981"
                     dataKey="value"
                   >
@@ -130,9 +130,9 @@ const Dashboard = () => {
 
           {/* Type Distribution */}
           {typeData.length > 0 && (
-            <div className="rounded-xl bg-surface-raised border border-surface-border p-6">
+            <div className="rounded-xl bg-surface-raised border border-surface-border p-4 sm:p-6">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Media Type Distribution</h3>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={isNarrow ? 240 : 280}>
                 <BarChart data={typeData} margin={{ top: 20, right: 12, left: 0, bottom: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" />
@@ -150,9 +150,9 @@ const Dashboard = () => {
 
           {/* Top Genres */}
           {genreData.length > 0 && (
-            <div className="rounded-xl bg-surface-raised border border-surface-border p-6 lg:col-span-2">
+            <div className="rounded-xl bg-surface-raised border border-surface-border p-4 sm:p-6 lg:col-span-2">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Top Genres</h3>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={isNarrow ? 240 : 280}>
                 <BarChart
                   data={genreData}
                   layout={isNarrow ? 'horizontal' : 'vertical'}

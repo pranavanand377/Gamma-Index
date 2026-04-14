@@ -51,7 +51,10 @@ export const logError = async ({
     if (!message || isDuplicate(message)) return;
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return; // Can't log without auth
+    if (!session?.user) {
+      console.warn('[errorLogger] No auth session, cannot log error:', message);
+      return;
+    }
 
     const row = {
       user_id: session.user.id,
@@ -65,8 +68,16 @@ export const logError = async ({
       metadata: metadata || {},
     };
 
-    await supabase.from('error_logs').insert([row]);
-  } catch {
+    const { error } = await supabase.from('error_logs').insert([row]);
+    
+    if (error) {
+      console.error('[errorLogger] Failed to insert error log:', error.message, { error, row });
+      // Still don't throw — we don't want error logging to break the app
+    } else {
+      console.log('[errorLogger] Error logged successfully:', { errorType, message: message.substring(0, 50) });
+    }
+  } catch (err) {
+    console.error('[errorLogger] Unexpected error in logError:', err);
     // Silently fail — don't let error logging cause more errors
   }
 };
@@ -120,31 +131,48 @@ export const installGlobalErrorHandlers = () => {
  * @returns {Promise<{ data: Array, count: number }>}
  */
 export const fetchErrorLogs = async ({ limit = 50, offset = 0, errorType } = {}) => {
-  let query = supabase
-    .from('error_logs')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  try {
+    let query = supabase
+      .from('error_logs')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-  if (errorType) {
-    query = query.eq('error_type', errorType);
+    if (errorType) {
+      query = query.eq('error_type', errorType);
+    }
+
+    const { data, error, count } = await query;
+    if (error) {
+      console.error('[errorLogger] fetchErrorLogs error:', error);
+      throw error;
+    }
+    return { data: data || [], count: count || 0 };
+  } catch (err) {
+    console.error('[errorLogger] Failed to fetch error logs:', err);
+    throw err;
   }
-
-  const { data, error, count } = await query;
-  if (error) throw error;
-  return { data: data || [], count: count || 0 };
 };
 
 /**
  * Delete all error logs (admin only).
  */
 export const clearAllErrorLogs = async () => {
-  const { error } = await supabase
-    .from('error_logs')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+  try {
+    const { error } = await supabase
+      .from('error_logs')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
 
-  if (error) throw error;
+    if (error) {
+      console.error('[errorLogger] clearAllErrorLogs error:', error);
+      throw error;
+    }
+    console.log('[errorLogger] All error logs cleared');
+  } catch (err) {
+    console.error('[errorLogger] Failed to clear error logs:', err);
+    throw err;
+  }
 };
 
 /**

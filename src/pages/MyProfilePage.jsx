@@ -44,14 +44,14 @@ const MyProfilePage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">My Profile</h1>
+          <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">My Profile</h1>
           <p className="mt-1 text-sm text-text-secondary">Your account details and tracking overview</p>
         </div>
         <Link
           to="/settings"
-          className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-surface-overlay/40 px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-overlay"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-surface-border bg-surface-overlay/40 px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-overlay w-full sm:w-auto"
         >
           <Settings size={16} />
           Account Settings

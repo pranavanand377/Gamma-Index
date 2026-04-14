@@ -177,17 +177,17 @@ const AccountSettingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface-base p-4">
+    <div className="min-h-screen bg-surface-base p-3 sm:p-4">
       {/* Header */}
-      <div className="max-w-2xl mx-auto mb-8 pt-6">
+      <div className="max-w-2xl mx-auto mb-6 pt-4 sm:mb-8 sm:pt-6">
         <button
           onClick={() => navigate('/')}
-          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-text-primary transition-colors mb-6"
+          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-text-primary transition-colors mb-4 sm:mb-6"
         >
           <ArrowLeft size={16} />
           Back to app
         </button>
-        <h1 className="text-3xl font-bold text-text-primary mb-2">Account Settings</h1>
+        <h1 className="text-2xl font-bold text-text-primary mb-2 sm:text-3xl">Account Settings</h1>
         <p className="text-sm text-text-secondary">Manage account preferences and admin controls</p>
       </div>
 
@@ -196,12 +196,12 @@ const AccountSettingsPage = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-surface-border bg-surface-raised p-8 shadow-lg"
+          className="rounded-2xl border border-surface-border bg-surface-raised p-4 shadow-lg sm:p-8"
         >
-          <div className="mb-6 flex gap-2 rounded-xl border border-surface-border bg-surface-overlay/20 p-1">
+          <div className="mb-6 flex gap-2 overflow-x-auto rounded-xl border border-surface-border bg-surface-overlay/20 p-1">
             <button
               onClick={() => setActiveTab('account')}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${
+              className={`shrink-0 flex-1 rounded-lg px-3 py-2 text-xs font-semibold sm:text-sm ${
                 activeTab === 'account' ? 'bg-gamma-500 text-surface-base' : 'text-text-secondary hover:bg-surface-overlay/50'
               }`}
             >
@@ -210,7 +210,7 @@ const AccountSettingsPage = () => {
             {isAdmin && (
               <button
                 onClick={() => setActiveTab('approvals')}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${
+                className={`shrink-0 flex-1 rounded-lg px-3 py-2 text-xs font-semibold sm:text-sm ${
                   activeTab === 'approvals' ? 'bg-gamma-500 text-surface-base' : 'text-text-secondary hover:bg-surface-overlay/50'
                 }`}
               >
@@ -220,7 +220,7 @@ const AccountSettingsPage = () => {
             {isAdmin && (
               <button
                 onClick={() => setActiveTab('debug')}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${
+                className={`shrink-0 flex-1 rounded-lg px-3 py-2 text-xs font-semibold sm:text-sm ${
                   activeTab === 'debug' ? 'bg-gamma-500 text-surface-base' : 'text-text-secondary hover:bg-surface-overlay/50'
                 }`}
               >

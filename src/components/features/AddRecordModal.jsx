@@ -55,6 +55,29 @@ const modalVariants = {
   exit: { opacity: 0, scale: 0.95, y: 20 },
 };
 
+const normalizeOptionalHttpUrl = (value) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return null;
+
+  // Limit URL length to prevent DB issues (typical max is 2048)
+  if (trimmed.length > 2000) {
+    throw new Error('URL is too long (max 2000 characters)');
+  }
+
+  // Add scheme if missing
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('Link must use http:// or https://');
+    }
+    return parsed.toString();
+  } catch (err) {
+    throw new Error('Invalid URL format');
+  }
+};
+
 const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const addItem = useMediaStore((s) => s.addItem);
   const user = useAuthStore((s) => s.user);
@@ -280,24 +303,54 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
   const uploadManualImage = async () => {
     if (!manualImageFile || !user) return null;
 
+    console.log('[AddRecordModal] Starting image upload:', { fileName: manualImageFile.name, size: manualImageFile.size });
+
     const ext = manualImageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
     const safeExt = ext.replace(/[^a-z0-9]/g, '') || 'jpg';
     const filePath = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${safeExt}`;
 
-    const { error: uploadError } = await supabase
-      .storage
-      .from('media-images')
-      .upload(filePath, manualImageFile, { upsert: false });
+    try {
+      // Add a 30-second timeout for storage upload
+      const uploadPromise = supabase
+        .storage
+        .from('media-images')
+        .upload(filePath, manualImageFile, { upsert: false });
 
-    if (uploadError) throw uploadError;
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Image upload timed out after 30 seconds')), 30000)
+      );
 
-    const { data } = supabase.storage.from('media-images').getPublicUrl(filePath);
-    return data?.publicUrl || null;
+      const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]);
+
+      if (uploadError) {
+        console.error('[AddRecordModal] Supabase upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('[AddRecordModal] Image upload successful, getting public URL');
+      const { data } = supabase.storage.from('media-images').getPublicUrl(filePath);
+      const publicUrl = data?.publicUrl || null;
+      console.log('[AddRecordModal] Public URL retrieved:', publicUrl);
+      return publicUrl;
+    } catch (err) {
+      console.error('[AddRecordModal] Image upload failed:', err);
+      throw err;
+    }
   };
 
   const handleSave = async () => {
     if (!selectedTitle || !user || saving) return;
     setSaving(true);
+    console.log('[AddRecordModal] handleSave started:', { title: selectedTitle.title, hasWatchLink: !!watchLink, hasImage: !!manualImageFile });
+
+    let normalizedWatchLink = null;
+    try {
+      normalizedWatchLink = normalizeOptionalHttpUrl(watchLink);
+    } catch {
+      addToast('Please enter a valid watch/read URL (example: https://example.com)', 'error');
+      setSaving(false);
+      return;
+    }
 
     const totalForSelectedSeason = (() => {
       if (!hasEpisodes) return null;
@@ -310,11 +363,14 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
 
     try {
       if (manualImageFile) {
+        console.log('[AddRecordModal] Beginning image upload phase');
         const uploadedUrl = await uploadManualImage();
         if (uploadedUrl) {
+          console.log('[AddRecordModal] Using uploaded image URL');
           resolvedImage = uploadedUrl;
         }
       } else if (manualImage.trim()) {
+        console.log('[AddRecordModal] Using manual image URL from input');
         resolvedImage = manualImage.trim();
       }
     } catch (uploadErr) {
@@ -346,23 +402,32 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       season: type === 'tv' ? season : null,
       rating,
       isFavorite,
-      watchLink,
+      watchLink: normalizedWatchLink,
       notes,
     };
 
     try {
       if (editItem) {
+        console.log('[AddRecordModal] Starting updateItem:', { id: editItem.id });
         await updateItem(user.id, editItem.id, itemData);
+        console.log('[AddRecordModal] updateItem completed successfully');
         addToast(`Updated "${selectedTitle.title}"`, 'success');
       } else {
+        console.log('[AddRecordModal] Starting addItem:', { watchLink: normalizedWatchLink });
         await addItem(user.id, itemData);
+        console.log('[AddRecordModal] addItem completed successfully');
         addToast(`Added "${selectedTitle.title}" to your list`, 'success');
       }
       onClose();
     } catch (err) {
       console.error('[AddRecordModal] save error:', err);
       logError({ errorType: 'api', ...extractError(err), source: 'AddRecordModal.handleSave' });
-      addToast('Failed to save. Check console for details.', 'error');
+      const message = String(err?.message || '').trim();
+      if (message) {
+        addToast(`Failed to save: ${message}`, 'error');
+      } else {
+        addToast('Failed to save. Please try again.', 'error');
+      }
     } finally {
       setSaving(false);
     }
@@ -991,7 +1056,7 @@ const EpisodePicker = ({
       </div>
     ) : displayEpisodes.length > 0 ? (
       <div className="space-y-2">
-        <div className="grid grid-cols-6 gap-1 sm:grid-cols-8 lg:grid-cols-10 max-h-52 overflow-y-auto pr-1">
+        <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-8 lg:grid-cols-10 max-h-52 overflow-y-auto pr-1">
           {displayEpisodes.map((ep) => (
             <button
               key={ep.number}
@@ -1159,7 +1224,7 @@ const StepTwo = ({
       <label className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2 block">
         Rating
       </label>
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
           <button
             key={star}

@@ -5,24 +5,24 @@ import GammaLogo from '../components/common/GammaLogo';
 const LandingPage = () => {
   return (
     <div className="min-h-screen bg-surface-base text-text-primary">
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-8">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <GammaLogo size={38} />
-            <h1 className="text-2xl font-bold">
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-8">
+        <header className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <GammaLogo size={32} />
+            <h1 className="text-xl font-bold sm:text-2xl">
               <span className="gradient-text">Gamma</span> Index
             </h1>
           </div>
           <div className="flex items-center gap-2">
             <Link
               to="/auth/login"
-              className="rounded-lg border border-surface-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-overlay hover:text-text-primary"
+              className="rounded-lg border border-surface-border px-3 py-2 text-xs font-medium text-text-secondary hover:bg-surface-overlay hover:text-text-primary sm:px-4 sm:text-sm"
             >
               Sign In
             </Link>
             <Link
               to="/auth/signup"
-              className="rounded-lg bg-gamma-500 px-4 py-2 text-sm font-semibold text-surface-base hover:bg-gamma-400"
+              className="rounded-lg bg-gamma-500 px-3 py-2 text-xs font-semibold text-surface-base hover:bg-gamma-400 sm:px-4 sm:text-sm"
             >
               Get Started
             </Link>
@@ -32,7 +32,7 @@ const LandingPage = () => {
         <main className="grid flex-1 items-center gap-10 py-12 md:grid-cols-2">
           <section>
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-gamma-400">Media Tracker Platform</p>
-            <h2 className="text-4xl font-bold leading-tight md:text-5xl">Track Anime, TV, Movies, and Comics in one place.</h2>
+            <h2 className="text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">Track Anime, TV, Movies, and Comics in one place.</h2>
             <p className="mt-4 max-w-xl text-text-secondary">
               Gamma Index helps you track what you watch and read, keep notes, and monitor progress with a clean, fast interface.
               New accounts require admin approval before they can access the app.
