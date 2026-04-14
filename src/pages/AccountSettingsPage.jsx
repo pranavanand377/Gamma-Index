@@ -11,10 +11,15 @@ import {
   UserCheck,
   Shield,
   Ban,
+  Bug,
+  Trash2,
+  ChevronDown,
+  RefreshCw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
 import useToastStore from '../store/useToastStore';
+import { fetchErrorLogs, clearAllErrorLogs, clearOldErrorLogs } from '../services/errorLogger';
 
 const AccountSettingsPage = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -30,6 +35,16 @@ const AccountSettingsPage = () => {
   const [activeTab, setActiveTab] = useState('account');
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
+
+  // Debug logs state
+  const [errorLogs, setErrorLogs] = useState([]);
+  const [errorLogsLoading, setErrorLogsLoading] = useState(false);
+  const [errorLogsCount, setErrorLogsCount] = useState(0);
+  const [errorTypeFilter, setErrorTypeFilter] = useState('');
+  const [errorPage, setErrorPage] = useState(0);
+  const [expandedLogId, setExpandedLogId] = useState(null);
+  const [clearingLogs, setClearingLogs] = useState(false);
+  const ERROR_LOGS_PER_PAGE = 20;
 
   const user = useAuthStore((s) => s.user);
   const isAdmin = useAuthStore((s) => s.isAdmin);
@@ -60,7 +75,65 @@ const AccountSettingsPage = () => {
     if (activeTab === 'approvals' && isAdmin) {
       loadUsers();
     }
+    if (activeTab === 'debug' && isAdmin) {
+      loadErrorLogs();
+    }
   }, [activeTab, isAdmin]); // eslint-disable-line
+
+  const loadErrorLogs = async (page = errorPage, typeFilter = errorTypeFilter) => {
+    setErrorLogsLoading(true);
+    try {
+      const { data, count } = await fetchErrorLogs({
+        limit: ERROR_LOGS_PER_PAGE,
+        offset: page * ERROR_LOGS_PER_PAGE,
+        errorType: typeFilter || undefined,
+      });
+      setErrorLogs(data);
+      setErrorLogsCount(count);
+    } catch {
+      addToast('Failed to load error logs', 'error');
+    }
+    setErrorLogsLoading(false);
+  };
+
+  const handleErrorTypeFilter = (type) => {
+    setErrorTypeFilter(type);
+    setErrorPage(0);
+    loadErrorLogs(0, type);
+  };
+
+  const handleErrorPageChange = (newPage) => {
+    setErrorPage(newPage);
+    loadErrorLogs(newPage, errorTypeFilter);
+  };
+
+  const handleClearAllLogs = async () => {
+    if (!window.confirm('Delete ALL error logs? This cannot be undone.')) return;
+    setClearingLogs(true);
+    try {
+      await clearAllErrorLogs();
+      setErrorLogs([]);
+      setErrorLogsCount(0);
+      setErrorPage(0);
+      addToast('All error logs cleared', 'success');
+    } catch {
+      addToast('Failed to clear logs', 'error');
+    }
+    setClearingLogs(false);
+  };
+
+  const handleClearOldLogs = async (days) => {
+    setClearingLogs(true);
+    try {
+      await clearOldErrorLogs(days);
+      addToast(`Cleared logs older than ${days} days`, 'success');
+      loadErrorLogs(0, errorTypeFilter);
+      setErrorPage(0);
+    } catch {
+      addToast('Failed to clear old logs', 'error');
+    }
+    setClearingLogs(false);
+  };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -142,6 +215,16 @@ const AccountSettingsPage = () => {
                 }`}
               >
                 Approvals
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('debug')}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${
+                  activeTab === 'debug' ? 'bg-gamma-500 text-surface-base' : 'text-text-secondary hover:bg-surface-overlay/50'
+                }`}
+              >
+                Debug Logs
               </button>
             )}
           </div>
@@ -344,6 +427,179 @@ const AccountSettingsPage = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+          {activeTab === 'debug' && isAdmin && (
+            <div>
+              {/* Header */}
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Bug size={18} className="text-gamma-400" />
+                  <h2 className="text-lg font-semibold text-text-primary">Debug Logs</h2>
+                  <span className="rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-secondary">
+                    {errorLogsCount}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => loadErrorLogs(errorPage, errorTypeFilter)}
+                    disabled={errorLogsLoading}
+                    className="inline-flex items-center gap-1 rounded-lg border border-surface-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-surface-overlay disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} className={errorLogsLoading ? 'animate-spin' : ''} />
+                    Refresh
+                  </button>
+                  <button
+                    onClick={() => handleClearOldLogs(7)}
+                    disabled={clearingLogs}
+                    className="inline-flex items-center gap-1 rounded-lg border border-surface-border px-3 py-1.5 text-xs font-semibold text-accent-amber hover:bg-accent-amber/10 disabled:opacity-50"
+                  >
+                    <Trash2 size={12} />
+                    Clear 7d+
+                  </button>
+                  <button
+                    onClick={handleClearAllLogs}
+                    disabled={clearingLogs}
+                    className="inline-flex items-center gap-1 rounded-lg border border-status-error/40 px-3 py-1.5 text-xs font-semibold text-status-error hover:bg-status-error/10 disabled:opacity-50"
+                  >
+                    <Trash2 size={12} />
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              {/* Type filter */}
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {['', 'runtime', 'api', 'promise-rejection', 'render', 'validation'].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => handleErrorTypeFilter(t)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      errorTypeFilter === t
+                        ? 'bg-gamma-500/15 text-gamma-400 border border-gamma-500/50'
+                        : 'bg-surface-overlay/30 text-text-muted border border-transparent hover:text-text-secondary'
+                    }`}
+                  >
+                    {t || 'All'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Logs list */}
+              {errorLogsLoading && errorLogs.length === 0 ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-text-secondary">
+                  <Loader2 size={16} className="animate-spin" /> Loading logs…
+                </div>
+              ) : errorLogs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gamma-500/10">
+                    <Bug size={24} className="text-gamma-400" />
+                  </div>
+                  <p className="text-sm text-text-secondary">No error logs found</p>
+                  <p className="mt-1 text-xs text-text-muted">Errors from all users will appear here automatically</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {errorLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="rounded-xl border border-surface-border bg-surface-overlay/20 transition-colors hover:border-surface-border/80"
+                    >
+                      {/* Log summary row */}
+                      <button
+                        onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                        className="flex w-full items-start gap-3 p-3 text-left"
+                      >
+                        <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+                          log.error_type === 'render' ? 'bg-status-error' :
+                          log.error_type === 'api' ? 'bg-accent-amber' :
+                          log.error_type === 'promise-rejection' ? 'bg-accent-pink' :
+                          log.error_type === 'validation' ? 'bg-accent-cyan' :
+                          'bg-text-muted'
+                        }`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-text-primary line-clamp-1">{log.error_message}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
+                            <span className="rounded bg-surface-overlay px-1.5 py-0.5 font-semibold uppercase tracking-wider">
+                              {log.error_type}
+                            </span>
+                            {log.error_source && (
+                              <span>from <span className="text-gamma-400">{log.error_source}</span></span>
+                            )}
+                            <span>·</span>
+                            <span>{log.user_email || 'unknown'}</span>
+                            <span>·</span>
+                            <span>{new Date(log.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        </div>
+                        <ChevronDown size={14} className={`mt-1 shrink-0 text-text-muted transition-transform ${expandedLogId === log.id ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Expanded details */}
+                      {expandedLogId === log.id && (
+                        <div className="border-t border-surface-border px-3 pb-3 pt-2 space-y-2">
+                          {log.error_stack && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Stack Trace</p>
+                              <pre className="max-h-40 overflow-auto rounded-lg bg-surface-base p-2 text-[11px] text-text-secondary font-mono whitespace-pre-wrap break-words">
+                                {log.error_stack}
+                              </pre>
+                            </div>
+                          )}
+                          {log.page_url && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Page URL</p>
+                              <p className="text-xs text-text-secondary break-all">{log.page_url}</p>
+                            </div>
+                          )}
+                          {log.user_agent && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">User Agent</p>
+                              <p className="text-xs text-text-secondary break-all">{log.user_agent}</p>
+                            </div>
+                          )}
+                          {log.metadata && Object.keys(log.metadata).length > 0 && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">Metadata</p>
+                              <pre className="max-h-32 overflow-auto rounded-lg bg-surface-base p-2 text-[11px] text-text-secondary font-mono whitespace-pre-wrap break-words">
+                                {JSON.stringify(log.metadata, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          <p className="text-[10px] text-text-muted">
+                            Full timestamp: {new Date(log.created_at).toISOString()} · User ID: {log.user_id || 'N/A'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Pagination */}
+                  {errorLogsCount > ERROR_LOGS_PER_PAGE && (
+                    <div className="flex items-center justify-between pt-3">
+                      <p className="text-xs text-text-muted">
+                        Showing {errorPage * ERROR_LOGS_PER_PAGE + 1}–{Math.min((errorPage + 1) * ERROR_LOGS_PER_PAGE, errorLogsCount)} of {errorLogsCount}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleErrorPageChange(errorPage - 1)}
+                          disabled={errorPage === 0}
+                          className="rounded-lg border border-surface-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-surface-overlay disabled:opacity-40"
+                        >
+                          Prev
+                        </button>
+                        <button
+                          onClick={() => handleErrorPageChange(errorPage + 1)}
+                          disabled={(errorPage + 1) * ERROR_LOGS_PER_PAGE >= errorLogsCount}
+                          className="rounded-lg border border-surface-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-surface-overlay disabled:opacity-40"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

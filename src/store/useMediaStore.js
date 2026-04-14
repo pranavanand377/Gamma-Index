@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../services/supabase';
+import { logError, extractError } from '../services/errorLogger';
 
 const mapDbToApp = (row) => ({
   ...row,
@@ -84,6 +85,7 @@ const useMediaStore = create((set, get) => ({
       set({ items: (data || []).map(mapDbToApp), loading: false });
     } catch (err) {
       console.error('[useMediaStore] fetchItems error:', err);
+      logError({ errorType: 'api', ...extractError(err), source: 'useMediaStore.fetchItems' });
       set({ loading: false });
     }
   },
@@ -113,6 +115,7 @@ const useMediaStore = create((set, get) => ({
       return inserted;
     } catch (err) {
       console.error('[useMediaStore] addItem error:', err);
+      logError({ errorType: 'api', ...extractError(err), source: 'useMediaStore.addItem' });
       throw err;
     }
   },
@@ -143,6 +146,7 @@ const useMediaStore = create((set, get) => ({
       });
     } catch (err) {
       console.error('[useMediaStore] updateItem error:', err);
+      logError({ errorType: 'api', ...extractError(err), source: 'useMediaStore.updateItem' });
       throw err;
     }
   },
@@ -159,6 +163,7 @@ const useMediaStore = create((set, get) => ({
       set({ items: get().items.filter((item) => item.id !== id) });
     } catch (err) {
       console.error('[useMediaStore] deleteItem error:', err);
+      logError({ errorType: 'api', ...extractError(err), source: 'useMediaStore.deleteItem' });
       throw err;
     }
   },

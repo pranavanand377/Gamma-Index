@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../services/supabase';
+import { logError, extractError } from '../services/errorLogger';
 
 const DEFAULT_ADMIN_EMAIL = 'pranavanandv5@gmail.com';
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL).toLowerCase();
@@ -176,6 +177,7 @@ const useAuthStore = create((set) => ({
       });
       if (error) throw error;
     } catch (err) {
+      logError({ errorType: 'api', ...extractError(err), source: 'useAuthStore.signInWithGoogle' });
       set({ error: err.message });
       throw err;
     }
@@ -195,6 +197,7 @@ const useAuthStore = create((set) => ({
       return data;
     } catch (err) {
       const formattedError = formatSignupError(err);
+      logError({ errorType: 'api', message: formattedError, stack: err?.stack, source: 'useAuthStore.signUpWithEmail' });
       set({ error: formattedError });
       throw new Error(formattedError);
     }
@@ -212,6 +215,7 @@ const useAuthStore = create((set) => ({
       set({ user: data.user, profile, isAdmin: profile?.role === 'admin' || isAdminEmail(data.user.email) });
       return data;
     } catch (err) {
+      logError({ errorType: 'api', ...extractError(err), source: 'useAuthStore.signInWithEmail' });
       set({ error: err.message });
       throw err;
     }

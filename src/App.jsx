@@ -17,6 +17,7 @@ import LandingPage from './pages/LandingPage';
 import PendingApprovalPage from './pages/PendingApprovalPage';
 import ToastContainer from './components/common/Toast';
 import PageLoader from './components/common/PageLoader';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import useAuthStore from './store/useAuthStore';
 import useMediaStore from './store/useMediaStore';
 
@@ -114,4 +115,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+export default AppWithErrorBoundary;

@@ -18,6 +18,7 @@ import { searchAnime, fetchAnimeEpisodes, searchManga, fetchMangaChapters } from
 import { searchMovies } from '../../services/tmdbApi';
 import { searchTvSeries, fetchTvEpisodesBySeason } from '../../services/tvmazeApi';
 import { supabase } from '../../services/supabase';
+import { logError, extractError } from '../../services/errorLogger';
 import useMediaStore from '../../store/useMediaStore';
 import useAuthStore from '../../store/useAuthStore';
 import useToastStore from '../../store/useToastStore';
@@ -197,6 +198,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       setSearchResults(results);
     } catch (err) {
       console.error('[AddRecordModal] search error:', err);
+      logError({ errorType: 'api', ...extractError(err), source: 'AddRecordModal.search' });
       setSearchError('Search failed. Check console for details.');
       setSearchResults([]);
     } finally {
@@ -317,6 +319,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       }
     } catch (uploadErr) {
       console.error('[AddRecordModal] manual image upload error:', uploadErr);
+      logError({ errorType: 'api', ...extractError(uploadErr), source: 'AddRecordModal.uploadImage' });
       const rawMessage = String(uploadErr?.message || '').toLowerCase();
       const guidance = rawMessage.includes('bucket') || rawMessage.includes('storage') || rawMessage.includes('row-level security')
         ? 'Image upload failed (storage bucket/policy missing). Saving without uploaded image.'
@@ -358,6 +361,7 @@ const AddRecordModal = ({ isOpen, onClose, editItem = null }) => {
       onClose();
     } catch (err) {
       console.error('[AddRecordModal] save error:', err);
+      logError({ errorType: 'api', ...extractError(err), source: 'AddRecordModal.handleSave' });
       addToast('Failed to save. Check console for details.', 'error');
     } finally {
       setSaving(false);
