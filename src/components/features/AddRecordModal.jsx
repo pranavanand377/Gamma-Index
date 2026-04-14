@@ -815,7 +815,7 @@ const StepOne = ({
         )}
 
         <input
-          type="url"
+          type="text"
           placeholder="or paste image URL (optional)"
           value={manualImage}
           onChange={(e) => setManualImage(e.target.value)}
@@ -898,12 +898,32 @@ const EpisodePicker = ({
 }) => {
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
   const displayEpisodes = useMemo(() => {
+    const manualCount = Number(manualTotalEpisodes) || 0;
+
+    // Manual override takes priority when set
+    if (manualCount > 0) {
+      if (episodesData.length === 0) {
+        // No API data — generate sequential tiles
+        return Array.from({ length: manualCount }, (_, idx) => ({
+          number: idx + 1,
+          name: `${episodeLabel} ${idx + 1}`,
+        }));
+      }
+      if (manualCount <= episodesData.length) {
+        // Trim API tiles to manual count
+        return episodesData.slice(0, manualCount);
+      }
+      // Extend: keep API tiles + pad remaining
+      const padded = [...episodesData];
+      for (let n = episodesData.length + 1; n <= manualCount; n++) {
+        padded.push({ number: n, name: `${episodeLabel} ${n}` });
+      }
+      return padded;
+    }
+
+    // No manual override — use API data as-is
     if (episodesData.length > 0) return episodesData;
-    if (manualTotalEpisodes <= 0) return [];
-    return Array.from({ length: manualTotalEpisodes }, (_, idx) => ({
-      number: idx + 1,
-      name: `${episodeLabel} ${idx + 1}`,
-    }));
+    return [];
   }, [episodesData, manualTotalEpisodes, episodeLabel]);
 
   return (
@@ -1181,7 +1201,7 @@ const StepTwo = ({
       <div className="relative">
         <ExternalLink size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
         <input
-          type="url"
+          type="text"
           placeholder="https://crunchyroll.com/..."
           value={watchLink}
           onChange={(e) => setWatchLink(e.target.value)}

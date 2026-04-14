@@ -46,9 +46,13 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
   const user = useAuthStore((s) => s.user);
   const addToast = useToastStore((s) => s.addToast);
 
-  const handleConfirmDelete = () => {
-    onDelete(item.id);
-    addToast(`Deleted "${item.title}"`, 'success');
+  const handleConfirmDelete = async () => {
+    try {
+      await onDelete(item.id);
+      addToast(`Deleted "${item.title}"`, 'success');
+    } catch {
+      addToast(`Failed to delete "${item.title}"`, 'error');
+    }
     setDeleteConfirmOpen(false);
   };
 
@@ -63,7 +67,11 @@ const MediaCard = ({ item, onEdit, onDelete }) => {
     if (!user) return;
     const newEp = Math.max(0, (item.currentEpisode || 0) + delta);
     if (item.totalEpisodes && newEp > item.totalEpisodes) return;
-    await updateItem(user.id, item.id, { currentEpisode: newEp });
+    try {
+      await updateItem(user.id, item.id, { currentEpisode: newEp });
+    } catch {
+      addToast('Failed to update episode', 'error');
+    }
   };
 
   const handleToggleFavorite = async () => {

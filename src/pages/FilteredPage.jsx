@@ -85,7 +85,7 @@ const FilteredPage = ({ mode }) => {
                 key={item.id}
                 item={item}
                 onEdit={handleEdit}
-                onDelete={(id) => deleteItem(id)}
+                onDelete={handleDelete}
               />
             ))}
           </AnimatePresence>

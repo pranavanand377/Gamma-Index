@@ -37,7 +37,7 @@ const RecentCard = ({ item }) => (
           : item.type === 'movie'
             ? ''
             : `${item.type === 'comic' ? 'Ch.' : 'Ep.'} ${item.currentEpisode || 0}${item.totalEpisodes ? ` / ${item.totalEpisodes}` : ''}`}
-        {item.type !== 'movie' && ' · '}{item.status.replace('_', ' ')}
+        {item.type !== 'movie' && ' · '}{(item.status || '').replaceAll('_', ' ')}
       </p>
     </div>
   </Link>

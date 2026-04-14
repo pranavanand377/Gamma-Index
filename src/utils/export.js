@@ -28,7 +28,7 @@ export const exportToCSV = (items, filename = 'gamma-index-library.csv') => {
   const rows = items.map((item) => [
     `"${(item.title || '').replace(/"/g, '""')}"`, // Escape quotes in title
     item.type || '',
-    (item.status || '').replace('_', ' '),
+    (item.status || '').replaceAll('_', ' '),
     item.rating || '',
     item.isFavorite ? 'Yes' : 'No',
     item.currentEpisode || item.current_episode || '',
@@ -37,7 +37,7 @@ export const exportToCSV = (items, filename = 'gamma-index-library.csv') => {
     item.year || '',
     Array.isArray(item.genres) ? item.genres.join('; ') : item.genres || '',
     `"${(item.synopsis || '').replace(/"/g, '""')}"`,
-    item.watchLink || item.watch_link || '',
+    `"${(item.watchLink || item.watch_link || '').replace(/"/g, '""')}"`,
     `"${(item.notes || '').replace(/"/g, '""')}"`,
     item.addedAt || item.added_at || '',
     item.updatedAt || item.updated_at || '',

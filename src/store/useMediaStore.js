@@ -8,6 +8,7 @@ const mapDbToApp = (row) => ({
   totalEpisodes: row.total_episodes,
   currentEpisode: row.current_episode,
   watchLink: row.watch_link,
+  lastWatched: row.last_watched,
   isFavorite: row.is_favorite ?? false,
 });
 
